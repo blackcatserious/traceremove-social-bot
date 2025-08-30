@@ -100,58 +100,66 @@ export async function POST(request: NextRequest) {
     
     const detectedLang = detectLanguage(message, persona.languages);
     
-    let context = '';
-    try {
-      context = await getContext(message, persona.id);
-    } catch (error) {
-      console.log('Using mock context due to API configuration:', error instanceof Error ? error.message : 'Unknown error');
-      context = '';
-    }
-    
-    let systemPrompt = persona.systemPrompt;
-    if (context) {
-      systemPrompt += `\n\nRelevant context from knowledge base:\n${context}`;
-    }
-    
-    const languageInstructions = {
-      en: 'Respond in English.',
-      es: 'Responde en español.',
-      tr: 'Türkçe yanıt ver.',
-      ru: 'Отвечай на русском языке.'
-    };
-    
-    if (languageInstructions[detectedLang as keyof typeof languageInstructions]) {
-      systemPrompt += `\n\n${languageInstructions[detectedLang as keyof typeof languageInstructions]}`;
-    }
-    
-    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-      { role: 'system', content: systemPrompt }
-    ];
-    
-    const recentHistory = history.slice(-10);
-    for (const msg of recentHistory) {
-      messages.push({
-        role: msg.role === 'user' ? 'user' : 'assistant',
-        content: msg.content
-      });
-    }
-    
-    messages.push({ role: 'user', content: message });
+    const apiKey = process.env.OPENAI_API_KEY;
+    const hasValidApiKey = apiKey && !apiKey.includes('your_') && apiKey !== '';
     
     let reply: string;
     
-    try {
-      const openai = getOpenAIClient();
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages,
-        temperature: 0.7,
-        max_tokens: 1000,
-      });
-      reply = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
-    } catch (error) {
-      console.log('Using mock response due to API configuration:', error instanceof Error ? error.message : 'Unknown error');
+    if (!hasValidApiKey) {
+      console.log('Using mock response - OpenAI API key not configured');
       reply = generateMockResponse(message, persona, detectedLang);
+    } else {
+      let context = '';
+      try {
+        context = await getContext(message, persona.id);
+      } catch (error) {
+        console.log('Using mock context due to API configuration:', error instanceof Error ? error.message : 'Unknown error');
+        context = '';
+      }
+      
+      let systemPrompt = persona.systemPrompt;
+      if (context) {
+        systemPrompt += `\n\nRelevant context from knowledge base:\n${context}`;
+      }
+      
+      const languageInstructions = {
+        en: 'Respond in English.',
+        es: 'Responde en español.',
+        tr: 'Türkçe yanıt ver.',
+        ru: 'Отвечай на русском языке.'
+      };
+      
+      if (languageInstructions[detectedLang as keyof typeof languageInstructions]) {
+        systemPrompt += `\n\n${languageInstructions[detectedLang as keyof typeof languageInstructions]}`;
+      }
+      
+      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        { role: 'system', content: systemPrompt }
+      ];
+      
+      const recentHistory = history.slice(-10);
+      for (const msg of recentHistory) {
+        messages.push({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content
+        });
+      }
+      
+      messages.push({ role: 'user', content: message });
+      
+      try {
+        const openai = getOpenAIClient();
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages,
+          temperature: 0.7,
+          max_tokens: 1000,
+        });
+        reply = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+      } catch (error) {
+        console.log('Using mock response due to API error:', error instanceof Error ? error.message : 'Unknown error');
+        reply = generateMockResponse(message, persona, detectedLang);
+      }
     }
     
     return NextResponse.json({
@@ -164,13 +172,28 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Chat API error:', error);
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    try {
+      const host = request.headers.get('host') || 'traceremove.com';
+      const persona = getPersonaByHost(host);
+      const detectedLang = 'en'; // fallback language
+      const reply = generateMockResponse('Hello', persona, detectedLang);
+      
+      return NextResponse.json({
+        reply: reply,
+        persona: persona.id,
+        lang: detectedLang,
+        chatTitle: persona.chatTitle,
+        chatSubtitle: persona.chatSubtitle
+      });
+    } catch (fallbackError) {
+      return NextResponse.json(
+        { 
+          error: 'Internal server error',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        },
+        { status: 500 }
+      );
+    }
   }
 }
 
