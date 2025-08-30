@@ -33,7 +33,7 @@ export const PERSONAS: Record<string, BotPersona> = {
   'traceremove.com': {
     id: 'orm-multilang',
     domain: 'traceremove.com',
-    languages: ['en', 'es', 'tr'],
+    languages: ['en', 'es', 'fr'],
     defaultLanguage: process.env.ORM_DEFAULT_LANG || 'en',
     systemPrompt: `You are an ORM (Online Reputation Management) and Brand Reputation Assistant for Traceremove. You respond professionally and ethically, helping with reviews management, PR strategies, localization, and publication planning. You provide expert advice on brand reputation, crisis management, and digital presence optimization.`,
     chatTitle: 'Reputation Assistant',
@@ -75,15 +75,15 @@ export function getPersonaByHost(host: string): BotPersona {
 
 export function detectLanguage(message: string, supportedLanguages: string[]): string {
   const cyrillicPattern = /[а-яё]/i;
-  const turkishPattern = /[çğıöşü]/i;
+  const frenchPattern = /[àâäéèêëïîôöùûüÿç]/i;
   const spanishPattern = /[ñáéíóúü]/i;
   
   if (supportedLanguages.includes('ru') && cyrillicPattern.test(message)) {
     return 'ru';
   }
   
-  if (supportedLanguages.includes('tr') && turkishPattern.test(message)) {
-    return 'tr';
+  if (supportedLanguages.includes('fr') && frenchPattern.test(message)) {
+    return 'fr';
   }
   
   if (supportedLanguages.includes('es') && spanishPattern.test(message)) {
