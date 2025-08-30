@@ -1,0 +1,23 @@
+{
+  "name": "traceremove-social-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.3.5",
+    "axios": "^1.4.0",
+    "next": "14.0.3",
+    "openai": "^4.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "twitter-api-v2": "^1.14.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}
