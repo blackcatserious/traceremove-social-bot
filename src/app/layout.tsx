@@ -1,10 +1,11 @@
 import React from 'react';
 import ChatWidget from '@/components/ChatWidget';
+import AdminNavigation from '@/components/AdminNavigation';
 import './globals.css';
 
 export const metadata = {
-  title: 'TraceRemove Social Bot',
-  description: 'AI-powered social media bot with domain-specific personas',
+  title: 'TraceRemove Management Center',
+  description: 'AI-powered domain management and social media automation',
 };
 
 export default function RootLayout({
@@ -14,8 +15,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        {children}
+      <body className="bg-gray-900 text-white min-h-screen">
+        <AdminNavigation />
+        <main className="relative">
+          {children}
+        </main>
         <ChatWidget />
       </body>
     </html>
