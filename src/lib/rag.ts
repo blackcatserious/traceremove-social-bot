@@ -201,7 +201,7 @@ function extractTitleFromHtml(html: string): string {
   return titleMatch ? titleMatch[1].trim() : 'Untitled';
 }
 
-export async function reindexPersona(personaId: string, notionDbId: string, sitemapUrl: string): Promise<void> {
+export async function reindexPersona(personaId: string, notionDbId: string, sitemapUrl: string): Promise<number> {
   try {
     console.log(`Reindexing persona: ${personaId}`);
     
@@ -234,6 +234,7 @@ export async function reindexPersona(personaId: string, notionDbId: string, site
     }
     
     console.log(`Reindexing complete for persona: ${personaId}`);
+    return allDocs.length;
   } catch (error) {
     console.error('Error reindexing persona:', error);
     throw error;

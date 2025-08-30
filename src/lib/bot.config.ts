@@ -8,6 +8,10 @@ export interface BotPersona {
   chatSubtitle: string;
   notionDbId: string;
   sitemapUrl: string;
+  crawl?: {
+    sitemap: string;
+    enabled: boolean;
+  };
 }
 
 export const PERSONAS: Record<string, BotPersona> = {
@@ -20,7 +24,11 @@ export const PERSONAS: Record<string, BotPersona> = {
     chatTitle: 'Philosophy of Technology',
     chatSubtitle: 'Exploring tech & humanity',
     notionDbId: process.env.NOTION_DEV_DB || '',
-    sitemapUrl: 'https://traceremove.dev/sitemap.xml'
+    sitemapUrl: process.env.SITEMAP_DEV || 'https://traceremove.dev/sitemap.xml',
+    crawl: {
+      sitemap: process.env.SITEMAP_DEV || 'https://traceremove.dev/sitemap.xml',
+      enabled: true
+    }
   },
   'traceremove.com': {
     id: 'orm-multilang',
@@ -31,7 +39,11 @@ export const PERSONAS: Record<string, BotPersona> = {
     chatTitle: 'Reputation Assistant',
     chatSubtitle: 'Brand & ORM expertise',
     notionDbId: process.env.NOTION_COM_DB || '',
-    sitemapUrl: 'https://traceremove.com/sitemap.xml'
+    sitemapUrl: process.env.SITEMAP_COM || 'https://traceremove.com/sitemap.xml',
+    crawl: {
+      sitemap: process.env.SITEMAP_COM || 'https://traceremove.com/sitemap.xml',
+      enabled: true
+    }
   },
   'traceremove.io': {
     id: 'orm-russian',
@@ -42,7 +54,11 @@ export const PERSONAS: Record<string, BotPersona> = {
     chatTitle: 'ORM Ассистент',
     chatSubtitle: 'Управление репутацией',
     notionDbId: process.env.NOTION_IO_DB || '',
-    sitemapUrl: 'https://traceremove.io/sitemap.xml'
+    sitemapUrl: process.env.SITEMAP_IO || 'https://traceremove.io/sitemap.xml',
+    crawl: {
+      sitemap: process.env.SITEMAP_IO || 'https://traceremove.io/sitemap.xml',
+      enabled: true
+    }
   }
 };
 
