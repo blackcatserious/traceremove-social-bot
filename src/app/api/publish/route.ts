@@ -30,6 +30,14 @@ export async function POST(req: Request): Promise<Response> {
           platformIds.Facebook = await publishToFacebook(text);
         } else if (platform === 'Instagram') {
           platformIds.Instagram = await publishToInstagram(text, post.imageUrl);
+        } else if (platform === 'GitHub') {
+          const { publishToGitHub } = await import('@/lib/publishers/github');
+          platformIds.GitHub = await publishToGitHub(text, {
+            action: 'issue',
+            repo: process.env.GITHUB_REPO || 'traceremove-social-bot',
+            owner: process.env.GITHUB_OWNER || 'blackcatserious',
+            title: post.title
+          });
         }
       } catch (err) {
         console.error(`Failed to publish to ${platform}:`, err);

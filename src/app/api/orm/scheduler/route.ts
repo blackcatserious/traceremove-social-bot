@@ -31,11 +31,12 @@ function getOpenAIClient(): OpenAI {
 }
 
 interface SchedulerTask {
-  type: 'social_post' | 'pr_response' | 'content_plan';
+  type: 'social_post' | 'pr_response' | 'content_plan' | 'github_update';
   title: string;
   content: string;
   language: string;
   priority: 'high' | 'medium' | 'low';
+  persona?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -104,18 +105,27 @@ async function generateDailyTasks(): Promise<SchedulerTask[]> {
   const prompts = [
     {
       type: 'social_post' as const,
-      prompt: `Generate a professional social media post for TraceRemove's reputation management services. Focus on tips for online reputation management. Make it engaging and informative. Date: ${today}`,
-      language: 'en'
+      prompt: `Generate a professional social media post for TraceRemove's reputation management services using the ORM Assistant persona. Focus on tips for online reputation management. Make it engaging and informative. Date: ${today}`,
+      language: 'en',
+      persona: 'orm-multilang'
     },
     {
       type: 'pr_response' as const,
-      prompt: `Create a template response for addressing negative reviews professionally. Include empathy, solution-oriented language, and brand protection strategies. Date: ${today}`,
-      language: 'en'
+      prompt: `Create a template response for addressing negative reviews professionally using the ORM Assistant persona. Include empathy, solution-oriented language, and brand protection strategies. Date: ${today}`,
+      language: 'en',
+      persona: 'orm-multilang'
     },
     {
       type: 'content_plan' as const,
-      prompt: `Outline a weekly content plan for reputation management topics. Include blog post ideas, social media themes, and educational content about ORM. Date: ${today}`,
-      language: 'en'
+      prompt: `Outline a weekly content plan for reputation management topics using the ORM Assistant persona. Include blog post ideas, social media themes, and educational content about ORM. Date: ${today}`,
+      language: 'en',
+      persona: 'orm-multilang'
+    },
+    {
+      type: 'github_update' as const,
+      prompt: `Create a GitHub issue or documentation update for TraceRemove's reputation management knowledge base. Focus on best practices and case studies. Date: ${today}`,
+      language: 'en',
+      persona: 'orm-multilang'
     }
   ];
   
@@ -148,7 +158,8 @@ async function generateDailyTasks(): Promise<SchedulerTask[]> {
           title: `Daily ${promptConfig.type.replace('_', ' ')} - ${today}`,
           content,
           language: promptConfig.language,
-          priority: 'medium'
+          priority: 'medium',
+          persona: promptConfig.persona
         });
       }
     } catch (error) {
@@ -183,7 +194,9 @@ async function createNotionDraft(task: SchedulerTask): Promise<{ id: string }> {
       },
       'Type': {
         select: {
-          name: task.type,
+          name: task.type === 'social_post' ? 'Post' : 
+                task.type === 'pr_response' ? 'ReviewReply' :
+                task.type === 'github_update' ? 'GitHub' : 'Plan',
         },
       },
       'Status': {
@@ -217,6 +230,20 @@ async function createNotionDraft(task: SchedulerTask): Promise<{ id: string }> {
               type: 'text',
               text: {
                 content: task.content,
+              },
+            },
+          ],
+        },
+      },
+      {
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: {
+                content: `Persona: ${task.persona || 'default'} | Language: ${task.language}`,
               },
             },
           ],
