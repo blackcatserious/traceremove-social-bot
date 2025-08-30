@@ -19,6 +19,11 @@ function getOpenAIClient(): OpenAI {
   return openaiClient;
 }
 
+function hasValidOpenAIKey(): boolean {
+  const apiKey = process.env.OPENAI_API_KEY;
+  return !!(apiKey && !apiKey.includes('your_') && apiKey !== '');
+}
+
 function generateMockResponse(message: string, persona: any, detectedLang: string): string {
   const lowerMessage = message.toLowerCase();
   
@@ -100,12 +105,9 @@ export async function POST(request: NextRequest) {
     
     const detectedLang = detectLanguage(message, persona.languages);
     
-    const apiKey = process.env.OPENAI_API_KEY;
-    const hasValidApiKey = apiKey && !apiKey.includes('your_') && apiKey !== '';
-    
     let reply: string;
     
-    if (!hasValidApiKey) {
+    if (!hasValidOpenAIKey()) {
       console.log('Using mock response - OpenAI API key not configured');
       reply = generateMockResponse(message, persona, detectedLang);
     } else {
