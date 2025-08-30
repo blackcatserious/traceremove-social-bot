@@ -51,14 +51,14 @@ function generateMockResponse(message: string, persona: any, detectedLang: strin
       return "Soy tu asistente especializado en gestión de reputación online y marketing digital. Puedo ayudarte con estrategias de contenido, monitoreo de marca, gestión de crisis, y optimización de presencia digital. ¿En qué área específica necesitas apoyo?";
     }
     
-    if (detectedLang === 'tr') {
-      if (lowerMessage.includes('itibar') || lowerMessage.includes('reputation')) {
-        return "Online itibar yönetimi, markanızın dijital varlığını güçlendirmek için stratejik bir yaklaşım gerektirir. Marka izleme, pozitif içerik geliştirme ve kriz yönetimi konularında size yardımcı olabilirim. Hangi platformlarda odaklanmak istiyorsunuz?";
+    if (detectedLang === 'fr') {
+      if (lowerMessage.includes('réputation') || lowerMessage.includes('reputation')) {
+        return "La gestion de réputation en ligne nécessite une approche stratégique pour renforcer votre présence digitale. Je peux vous aider avec la surveillance de marque, le développement de contenu positif et la gestion de crise. Sur quelles plateformes souhaitez-vous vous concentrer?";
       }
-      if (lowerMessage.includes('sosyal medya') || lowerMessage.includes('social media')) {
-        return "Sosyal medya stratejinizi güçlendirmek için içerik takvimi oluşturma, profil optimizasyonu ve etkileşim stratejileri geliştirebiliriz. Hangi sosyal medya platformları sizin için öncelikli?";
+      if (lowerMessage.includes('médias sociaux') || lowerMessage.includes('social media')) {
+        return "Nous pouvons renforcer votre stratégie de médias sociaux en créant un calendrier de contenu, en optimisant vos profils et en développant des stratégies d'engagement. Quelles plateformes de médias sociaux sont prioritaires pour votre entreprise?";
       }
-      return "Online itibar yönetimi ve dijital pazarlama konularında uzmanlaşmış asistanınızım. İçerik stratejisi, marka izleme, kriz yönetimi ve dijital varlık optimizasyonu konularında size yardımcı olabilirim. Hangi alanda desteğe ihtiyacınız var?";
+      return "Je suis votre assistant spécialisé en gestion de réputation en ligne et marketing digital. Je peux vous aider avec les stratégies de contenu, la surveillance de marque, la gestion de crise et l'optimisation de présence digitale. Dans quel domaine avez-vous besoin d'aide?";
     }
     
     if (lowerMessage.includes('reputation') || lowerMessage.includes('brand')) {
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       const languageInstructions = {
         en: 'Respond in English.',
         es: 'Responde en español.',
-        tr: 'Türkçe yanıt ver.',
+        fr: 'Répondez en français.',
         ru: 'Отвечай на русском языке.'
       };
       
