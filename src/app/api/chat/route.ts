@@ -35,7 +35,7 @@ function generateMockResponse(message: string, persona: any, detectedLang: strin
     return "Every technological advancement carries within it the seeds of both liberation and constraint. The key is understanding how these systems interact with human agency and social structures. What specific aspect of technology and human interaction would you like to explore further?";
   }
   
-  if (persona.id === 'orm_multilang') {
+  if (persona.id === 'orm-multilang') {
     if (detectedLang === 'es') {
       if (lowerMessage.includes('reputación') || lowerMessage.includes('reputation')) {
         return "La gestión de reputación online requiere un enfoque estratégico y proactivo. Podemos ayudarte a monitorear menciones de tu marca, desarrollar contenido positivo, y crear estrategias de respuesta para comentarios negativos. ¿En qué plataformas específicas necesitas mejorar tu presencia?";
@@ -68,7 +68,7 @@ function generateMockResponse(message: string, persona: any, detectedLang: strin
     return "I'm your ORM and brand reputation assistant. I specialize in online reputation management, content strategy, social media optimization, and digital marketing. I can help with brand monitoring, crisis management, content planning, and building positive online presence. How can I assist you today?";
   }
   
-  if (persona.id === 'orm_russian') {
+  if (persona.id === 'orm-russian') {
     if (lowerMessage.includes('репутация') || lowerMessage.includes('reputation')) {
       return "Управление онлайн-репутацией требует системного подхода. Помогу настроить мониторинг упоминаний бренда, разработать стратегию позитивного контента и создать протоколы реагирования на негативные отзывы. На каких платформах нужно улучшить присутствие?";
     }
