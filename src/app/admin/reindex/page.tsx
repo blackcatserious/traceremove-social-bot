@@ -11,9 +11,9 @@ interface ReindexResult {
 }
 
 const personas = [
-  { id: 'philosopher', name: 'Philosophy of Technology', domain: 'traceremove.dev' },
-  { id: 'orm-multilang', name: 'ORM Assistant (Multi-lang)', domain: 'traceremove.com' },
-  { id: 'orm-russian', name: 'ORM Assistant (Russian)', domain: 'traceremove.io' }
+  { id: 'philosopher', name: 'Digital Arthur Ziganshine', domain: 'traceremove.dev' },
+  { id: 'orm-multilang', name: 'Digital Arthur Ziganshine (ORM)', domain: 'traceremove.com' },
+  { id: 'orm-russian', name: 'Digital Arthur Ziganshine (ORM)', domain: 'traceremove.io' }
 ];
 
 export default function AdminReindexPage() {

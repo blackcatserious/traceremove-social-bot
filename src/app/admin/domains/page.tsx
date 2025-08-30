@@ -10,7 +10,7 @@ export default function DomainsPage() {
     {
       id: 'traceremove.dev',
       name: 'traceremove.dev',
-      persona: 'Philosophy of Technology',
+      persona: 'Digital Arthur Ziganshine',
       language: 'English',
       status: 'Active',
       conversations: 423,
@@ -20,7 +20,7 @@ export default function DomainsPage() {
     {
       id: 'traceremove.com',
       name: 'traceremove.com',
-      persona: 'ORM Assistant (Multi-lang)',
+      persona: 'Digital Arthur Ziganshine (ORM)',
       language: 'EN/ES/FR',
       status: 'Active',
       conversations: 651,
@@ -30,7 +30,7 @@ export default function DomainsPage() {
     {
       id: 'traceremove.io',
       name: 'traceremove.io',
-      persona: 'ORM Assistant (Russian)',
+      persona: 'Digital Arthur Ziganshine (ORM)',
       language: 'Russian',
       status: 'Active',
       conversations: 173,
