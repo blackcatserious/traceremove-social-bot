@@ -8,7 +8,7 @@ The bot pulls content from a Notion database, formats it into short posts with a
 * **Scheduled publishing** – Uses Vercel cron jobs to run once per hour and pick up any posts that are ready to publish.
 * **Notion integration** – Reads posts from a Notion database with properties such as `Title`, `Summary`, `Status`, `Publish At`, `Platforms`, `Tags`, etc., and marks them as `Published` after successful posting.
 * **Multi‑platform support** – Separate publishers for X/Twitter, Facebook and Instagram.  Dry‑run mode is enabled by default via the `BOT_DRY_RUN` environment variable.
-* **Custom formatting** – Posts are assembled using a simple formatter or an optional OpenAI model to rewrite the summary in a "philosopher of technology" style.
+* **Custom formatting** – Posts are assembled using a simple formatter or an optional OpenAI model to rewrite the summary in a “philosopher of technology” style.
 
 ## Getting started
 
