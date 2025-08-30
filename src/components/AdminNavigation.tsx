@@ -15,13 +15,17 @@ import {
   Shield, 
   Settings,
   Menu,
-  X
+  X,
+  FolderOpen,
+  Zap
 } from 'lucide-react';
 
 const navigationItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/domains', label: 'Domain Management', icon: Globe },
   { href: '/admin/personas', label: 'AI Personas', icon: Brain },
+  { href: '/admin/projects', label: 'Project Management', icon: FolderOpen },
+  { href: '/admin/integrations', label: 'Integrations', icon: Zap },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/content', label: 'Content Management', icon: FileText },
   { href: '/admin/github', label: 'GitHub Integration', icon: Github },
