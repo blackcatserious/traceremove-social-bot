@@ -62,9 +62,9 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-semibold text-primary mb-6">Domain Status</h2>
           <div className="grid-professional grid-cols-3">
             {[
-              { domain: 'traceremove.dev', persona: 'Philosophy of Technology', status: 'Active' },
-              { domain: 'traceremove.com', persona: 'ORM Assistant (Multi-lang)', status: 'Active' },
-              { domain: 'traceremove.io', persona: 'ORM Assistant (Russian)', status: 'Active' }
+              { domain: 'traceremove.dev', persona: 'Digital Arthur Ziganshine', status: 'Active' },
+              { domain: 'traceremove.com', persona: 'Digital Arthur Ziganshine (ORM)', status: 'Active' },
+              { domain: 'traceremove.io', persona: 'Digital Arthur Ziganshine (ORM)', status: 'Active' }
             ].map((domain, index) => (
               <div key={domain.domain} className="p-4 border border-gray-700 rounded">
                 <div className="flex items-center justify-between mb-2">
