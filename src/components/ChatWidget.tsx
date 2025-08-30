@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MessageCircle, X, Send } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -103,159 +105,198 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* Chat Button */}
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            width: '56px',
-            height: '56px',
-            backgroundColor: '#2563eb',
-            color: 'white',
-            borderRadius: '50%',
-            border: 'none',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 50,
-            transition: 'all 0.2s'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-          aria-label="Open chat"
-        >
-          <svg
-            style={{ width: '24px', height: '24px' }}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      <AnimatePresence>
+        {!isOpen && (
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsOpen(true)}
+            className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full border-none shadow-xl cursor-pointer flex items-center justify-center z-50 backdrop-blur-sm"
+            style={{
+              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              boxShadow: '0 10px 25px rgba(37, 99, 235, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+            }}
+            aria-label="Open chat"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
-          </svg>
-        </button>
-      )}
-
-      {/* Chat Window */}
-      {isOpen && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          right: '24px',
-          width: '384px',
-          height: '500px',
-          backgroundColor: '#111827',
-          borderRadius: '8px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 50,
-          border: '1px solid #374151'
-        }}>
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid #374151' }}>
-            <div>
-              <h3 style={{ color: 'white', fontWeight: '600', fontSize: '14px', margin: 0 }}>{chatTitle}</h3>
-              <p style={{ color: '#9ca3af', fontSize: '12px', margin: 0 }}>{chatSubtitle}</p>
-            </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
-              onMouseOver={(e) => e.currentTarget.style.color = 'white'}
-              onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
-              aria-label="Close chat"
+            <motion.div
+              animate={{ rotate: 0 }}
+              whileHover={{ rotate: 15 }}
+              transition={{ type: "spring", stiffness: 300 }}
             >
-              <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+              <MessageCircle size={24} />
+            </motion.div>
+            <motion.div
+              className="absolute inset-0 rounded-full bg-blue-400 opacity-30"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {messages.length === 0 && (
-              <div style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px', marginTop: '32px' }}>
-                <p>Welcome! How can I help you today?</p>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.8, opacity: 0, y: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed bottom-6 right-6 w-96 h-[500px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col z-50 border border-gray-700/50"
+            style={{
+              background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(31, 41, 55, 0.95) 100%)',
+              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+            }}
+          >
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="flex items-center justify-between p-4 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-t-2xl"
+            >
+              <div>
+                <h3 className="text-white font-semibold text-sm">{chatTitle}</h3>
+                <p className="text-gray-400 text-xs">{chatSubtitle}</p>
               </div>
-            )}
-            
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                style={{ display: 'flex', justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start' }}
+              <motion.button
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700/50"
+                aria-label="Close chat"
               >
-                <div
+                <X size={18} />
+              </motion.button>
+            </motion.div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+              <AnimatePresence>
+                {messages.length === 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center text-gray-400 text-sm mt-8"
+                  >
+                    <motion.div
+                      animate={{ y: [0, -5, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      <MessageCircle size={32} className="mx-auto mb-3 text-gray-500" />
+                    </motion.div>
+                    <p>Welcome! How can I help you today?</p>
+                  </motion.div>
+                )}
+                
+                {messages.map((message, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                        message.role === 'user'
+                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
+                          : 'bg-gray-700/80 backdrop-blur-sm text-gray-100 border border-gray-600/50'
+                      }`}
+                      style={{
+                        boxShadow: message.role === 'user' 
+                          ? '0 4px 12px rgba(37, 99, 235, 0.3)' 
+                          : '0 4px 12px rgba(0, 0, 0, 0.2)'
+                      }}
+                    >
+                      <p className="whitespace-pre-wrap m-0">{message.content}</p>
+                      <p className={`text-xs mt-1 m-0 ${
+                        message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
+                      }`}>
+                        {formatTime(message.timestamp)}
+                      </p>
+                    </motion.div>
+                  </motion.div>
+                ))}
+                
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="flex justify-start"
+                  >
+                    <div className="bg-gray-700/80 backdrop-blur-sm text-gray-100 rounded-2xl px-4 py-3 text-sm border border-gray-600/50">
+                      <div className="flex items-center space-x-1">
+                        <motion.div
+                          className="w-2 h-2 bg-gray-400 rounded-full"
+                          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                        />
+                        <motion.div
+                          className="w-2 h-2 bg-gray-400 rounded-full"
+                          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                        />
+                        <motion.div
+                          className="w-2 h-2 bg-gray-400 rounded-full"
+                          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              <div ref={messagesEndRef} />
+            </div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="p-4 border-t border-gray-700/50 bg-gradient-to-r from-gray-800/30 to-gray-700/30 rounded-b-2xl"
+            >
+              <div className="flex space-x-3">
+                <motion.textarea
+                  whileFocus={{ scale: 1.02 }}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your message..."
+                  className="flex-1 bg-gray-800/80 backdrop-blur-sm text-white rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 border border-gray-600/50 transition-all duration-200"
+                  rows={1}
+                  disabled={isLoading}
                   style={{
-                    maxWidth: '80%',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    fontSize: '14px',
-                    backgroundColor: message.role === 'user' ? '#2563eb' : '#374151',
-                    color: message.role === 'user' ? 'white' : '#f3f4f6'
+                    boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)'
+                  }}
+                />
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={sendMessage}
+                  disabled={!inputValue.trim() || isLoading}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-sm transition-all duration-200 shadow-lg"
+                  style={{
+                    boxShadow: !inputValue.trim() || isLoading 
+                      ? '0 4px 12px rgba(0, 0, 0, 0.2)' 
+                      : '0 4px 12px rgba(37, 99, 235, 0.3)'
                   }}
                 >
-                  <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{message.content}</p>
-                  <p style={{
-                    fontSize: '12px',
-                    marginTop: '4px',
-                    margin: '4px 0 0 0',
-                    color: message.role === 'user' ? '#bfdbfe' : '#9ca3af'
-                  }}>
-                    {formatTime(message.timestamp)}
-                  </p>
-                </div>
+                  <motion.div
+                    animate={{ rotate: isLoading ? 360 : 0 }}
+                    transition={{ duration: 1, repeat: isLoading ? Infinity : 0, ease: "linear" }}
+                  >
+                    <Send size={16} />
+                  </motion.div>
+                </motion.button>
               </div>
-            ))}
-            
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-700 text-gray-100 rounded-lg px-3 py-2 text-sm">
-                  <div className="flex items-center space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="p-4 border-t border-gray-700">
-            <div className="flex space-x-2">
-              <textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your message..."
-                className="flex-1 bg-gray-800 text-white rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600"
-                rows={1}
-                disabled={isLoading}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2 text-sm transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
