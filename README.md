@@ -1,6 +1,6 @@
-# traceremove-social-bot
+# TraceRemove Digital Arthur Ziganshine System
 
-This repository contains a Next.js 14 application designed to automate the process of publishing posts from a Notion database to multiple social media platforms.  
+This repository contains a comprehensive AI-powered digital assistant system with domain-specific personas, RAG capabilities, and full project implementation features.  
 The bot pulls content from a Notion database, formats it into short posts with a philosophical tone and publishes them on a schedule to **X/Twitter**, **Facebook** and **Instagram**.  
 
 ## Features
