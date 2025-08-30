@@ -30,10 +30,10 @@ export default function ContentPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">Content Management</h1>
+              <h1 className="text-4xl font-bold text-gradient mb-2">Content Management</h1>
               <p className="text-gray-400">Manage Notion databases and RAG content</p>
             </div>
-            <button className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+            <button className="flex items-center btn-premium px-4 py-2 rounded-lg transition-colors">
               <Plus className="w-4 h-4 mr-2" />
               Add Content
             </button>
@@ -42,8 +42,8 @@ export default function ContentPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1">
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-              <h2 className="text-xl font-bold text-white mb-4">Databases</h2>
+            <div className="glass-card-premium">
+              <h2 className="text-xl font-bold text-gradient mb-4">Databases</h2>
               <div className="space-y-3">
                 {databases.map((db) => (
                   <motion.div
@@ -79,10 +79,10 @@ export default function ContentPage() {
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-white">
+                <h2 className="text-xl font-bold text-gradient">
                   {databases.find(db => db.id === selectedDatabase)?.name} Content
                 </h2>
                 <div className="flex items-center space-x-2">

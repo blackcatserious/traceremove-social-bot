@@ -50,14 +50,14 @@ export default function PersonasPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-4xl font-bold text-white mb-2">AI Personas</h1>
+          <h1 className="text-4xl font-bold text-gradient mb-2">AI Personas</h1>
           <p className="text-gray-400">Configure and manage AI personality profiles</p>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-              <h2 className="text-xl font-bold text-white mb-4">Personas</h2>
+            <div className="glass-card-premium">
+              <h2 className="text-xl font-bold text-gradient mb-4">Personas</h2>
               <div className="space-y-3">
                 {personas.map((persona) => (
                   <motion.div
@@ -89,9 +89,9 @@ export default function PersonasPage() {
                 animate={{ opacity: 1, x: 0 }}
                 className="space-y-6"
               >
-                <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+                <div className="glass-card-premium">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-white">
+                    <h2 className="text-xl font-bold text-gradient">
                       {selectedPersonaData.name} Configuration
                     </h2>
                     <button className="flex items-center text-blue-400 hover:text-blue-300 transition-colors">
@@ -141,19 +141,19 @@ export default function PersonasPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+                  <div className="glass-card-premium">
                     <Globe className="w-8 h-8 text-blue-400 mb-4" />
                     <h3 className="text-lg font-semibold text-white mb-2">Domain</h3>
                     <p className="text-lg font-bold text-white">{selectedPersonaData.domain}</p>
                     <p className="text-gray-400 text-sm">Target domain</p>
                   </div>
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+                  <div className="glass-card-premium">
                     <MessageSquare className="w-8 h-8 text-green-400 mb-4" />
                     <h3 className="text-lg font-semibold text-white mb-2">Languages</h3>
                     <p className="text-lg font-bold text-white">{selectedPersonaData.language}</p>
                     <p className="text-gray-400 text-sm">Supported languages</p>
                   </div>
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+                  <div className="glass-card-premium">
                     <Settings className="w-8 h-8 text-purple-400 mb-4" />
                     <h3 className="text-lg font-semibold text-white mb-2">Status</h3>
                     <p className="text-lg font-bold text-green-400">Active</p>

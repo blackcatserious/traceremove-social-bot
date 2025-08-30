@@ -37,7 +37,7 @@ export default function AdminNavigation() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="bg-gray-900/95 backdrop-blur-xl border-b border-gray-700/50 sticky top-0 z-50"
+      className="nav-premium bg-gray-900/95 backdrop-blur-xl border-b border-gray-700/50 sticky top-0 z-50"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
@@ -50,7 +50,7 @@ export default function AdminNavigation() {
               <Brain className="w-5 h-5 text-white" />
             </motion.div>
             <div className="flex flex-col">
-              <span className="text-lg font-bold text-white">TraceRemove</span>
+              <span className="text-lg font-bold text-gradient">TraceRemove</span>
               <span className="text-xs text-gray-400">Management Center</span>
             </div>
           </Link>

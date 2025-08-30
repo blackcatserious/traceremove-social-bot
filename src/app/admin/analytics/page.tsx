@@ -26,7 +26,7 @@ export default function AnalyticsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-4xl font-bold text-white mb-2">Analytics Dashboard</h1>
+          <h1 className="text-4xl font-bold text-gradient mb-2">Analytics Dashboard</h1>
           <p className="text-gray-400">Monitor performance across all domains</p>
         </motion.div>
 
@@ -43,7 +43,7 @@ export default function AnalyticsPage() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.1 }}
               whileHover={{ scale: 1.05, y: -5 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center justify-between mb-4">
                 <metric.icon className={`w-8 h-8 text-${metric.color}-400`} />
@@ -64,9 +64,9 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
-            <h2 className="text-xl font-bold text-white mb-6">Domain Performance</h2>
+            <h2 className="text-xl font-bold text-gradient mb-6">Domain Performance</h2>
             <div className="space-y-4">
               {domainStats.map((domain, index) => (
                 <div key={domain.domain} className="bg-gray-700/50 rounded-xl p-4">
@@ -96,9 +96,9 @@ export default function AnalyticsPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
-            <h2 className="text-xl font-bold text-white mb-6">Recent Activity</h2>
+            <h2 className="text-xl font-bold text-gradient mb-6">Recent Activity</h2>
             <div className="space-y-4">
               {[
                 { time: '2 minutes ago', event: 'New conversation on traceremove.com', type: 'chat' },
@@ -128,9 +128,9 @@ export default function AnalyticsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+          className="glass-card-premium"
         >
-          <h2 className="text-xl font-bold text-white mb-6">Usage Trends</h2>
+          <h2 className="text-xl font-bold text-gradient mb-6">Usage Trends</h2>
           <div className="h-64 flex items-center justify-center">
             <div className="text-center">
               <BarChart3 className="w-16 h-16 text-gray-600 mx-auto mb-4" />

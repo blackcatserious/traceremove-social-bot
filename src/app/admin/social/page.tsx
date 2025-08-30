@@ -31,10 +31,10 @@ export default function SocialPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">Social Media Management</h1>
+              <h1 className="text-4xl font-bold text-gradient mb-2">Social Media Management</h1>
               <p className="text-gray-400">Manage posts and engagement across platforms</p>
             </div>
-            <button className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+            <button className="flex items-center btn-premium px-4 py-2 rounded-lg transition-colors">
               <Calendar className="w-4 h-4 mr-2" />
               Schedule Post
             </button>
@@ -54,7 +54,7 @@ export default function SocialPage() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.1 }}
               whileHover={{ scale: 1.05, y: -5 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center justify-between mb-4">
                 <platform.icon className="w-8 h-8 text-blue-400" />
@@ -83,10 +83,10 @@ export default function SocialPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-white">Scheduled Posts</h2>
+                <h2 className="text-xl font-bold text-gradient">Scheduled Posts</h2>
                 <select
                   value={selectedPlatform}
                   onChange={(e) => setSelectedPlatform(e.target.value)}
@@ -130,9 +130,9 @@ export default function SocialPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 mb-6"
+              className="glass-card-premium mb-6"
             >
-              <h2 className="text-xl font-bold text-white mb-6">Performance Overview</h2>
+              <h2 className="text-xl font-bold text-gradient mb-6">Performance Overview</h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Total Posts</span>
@@ -157,11 +157,11 @@ export default function SocialPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
-              <h2 className="text-xl font-bold text-white mb-6">Quick Actions</h2>
+              <h2 className="text-xl font-bold text-gradient mb-6">Quick Actions</h2>
               <div className="space-y-3">
-                <button className="w-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <button className="w-full flex items-center justify-center btn-premium px-4 py-2 rounded-lg transition-colors">
                   <Share2 className="w-4 h-4 mr-2" />
                   Create Post
                 </button>

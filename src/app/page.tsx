@@ -29,7 +29,7 @@ export default function AdminDashboard() {
           transition={{ duration: 0.6 }}
           className="mb-8"
         >
-          <h1 className="text-4xl font-bold text-white mb-2">Management Center</h1>
+          <h1 className="text-4xl font-bold text-gradient mb-2">Management Center</h1>
           <p className="text-gray-400">Control your AI-powered domain ecosystem</p>
         </motion.div>
 
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               whileHover={{ scale: 1.05, y: -5 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${stat.color} flex items-center justify-center`}>
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mb-8"
         >
-          <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
+          <h2 className="text-2xl font-bold text-gradient mb-6">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {quickActions.map((action, index) => (
               <motion.div
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
               >
                 <Link
                   href={action.href}
-                  className="block bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 hover:border-blue-500/50 transition-all duration-300"
+                  className="block glass-card-premium hover:border-blue-500/50 transition-all duration-300"
                 >
                   <action.icon className="w-8 h-8 text-blue-400 mb-4" />
                   <h3 className="text-lg font-semibold text-white mb-2">{action.title}</h3>
@@ -92,9 +92,9 @@ export default function AdminDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+          className="glass-card-premium"
         >
-          <h2 className="text-2xl font-bold text-white mb-6">Domain Status</h2>
+          <h2 className="text-2xl font-bold text-gradient mb-6">Domain Status</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               { domain: 'traceremove.dev', persona: 'Philosophy of Technology', status: 'Active', color: 'green' },

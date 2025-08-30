@@ -30,7 +30,7 @@ export default function GitHubPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">GitHub Integration</h1>
+              <h1 className="text-4xl font-bold text-gradient mb-2">GitHub Integration</h1>
               <p className="text-gray-400">Manage repository connections and webhooks</p>
             </div>
             <button className="flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
@@ -45,7 +45,7 @@ export default function GitHubPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
             <div className="flex items-center mb-4">
               <Github className="w-8 h-8 text-white mr-3" />
@@ -66,7 +66,7 @@ export default function GitHubPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
             <div className="flex items-center mb-4">
               <GitBranch className="w-8 h-8 text-blue-400 mr-3" />
@@ -82,7 +82,7 @@ export default function GitHubPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
             <div className="flex items-center mb-4">
               <Activity className="w-8 h-8 text-green-400 mr-3" />
@@ -100,9 +100,9 @@ export default function GitHubPage() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
-            <h2 className="text-xl font-bold text-white mb-6">Connected Repositories</h2>
+            <h2 className="text-xl font-bold text-gradient mb-6">Connected Repositories</h2>
             <div className="space-y-4">
               {repositories.map((repo, index) => (
                 <div key={repo.name} className="bg-gray-700/50 rounded-xl p-4">
@@ -128,9 +128,9 @@ export default function GitHubPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
-            <h2 className="text-xl font-bold text-white mb-6">Recent Activity</h2>
+            <h2 className="text-xl font-bold text-gradient mb-6">Recent Activity</h2>
             <div className="space-y-4">
               {recentActivity.map((activity, index) => (
                 <div key={index} className="flex items-start space-x-3">

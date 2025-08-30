@@ -50,14 +50,14 @@ export default function DomainsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h1 className="text-4xl font-bold text-white mb-2">Domain Management</h1>
+          <h1 className="text-4xl font-bold text-gradient mb-2">Domain Management</h1>
           <p className="text-gray-400">Manage AI personas and domain configurations</p>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-              <h2 className="text-xl font-bold text-white mb-4">Domains</h2>
+            <div className="glass-card-premium">
+              <h2 className="text-xl font-bold text-gradient mb-4">Domains</h2>
               <div className="space-y-3">
                 {domains.map((domain) => (
                   <motion.div
@@ -89,9 +89,9 @@ export default function DomainsPage() {
                 animate={{ opacity: 1, x: 0 }}
                 className="space-y-6"
               >
-                <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+                <div className="glass-card-premium">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-white">
+                    <h2 className="text-xl font-bold text-gradient">
                       {selectedDomainData.name} Configuration
                     </h2>
                     <a
@@ -137,19 +137,19 @@ export default function DomainsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+                  <div className="glass-card-premium">
                     <MessageSquare className="w-8 h-8 text-blue-400 mb-4" />
                     <h3 className="text-lg font-semibold text-white mb-2">Conversations</h3>
                     <p className="text-3xl font-bold text-white">{selectedDomainData.conversations}</p>
                     <p className="text-gray-400 text-sm">Total interactions</p>
                   </div>
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+                  <div className="glass-card-premium">
                     <Globe className="w-8 h-8 text-green-400 mb-4" />
                     <h3 className="text-lg font-semibold text-white mb-2">Status</h3>
                     <p className="text-3xl font-bold text-green-400">{selectedDomainData.status}</p>
                     <p className="text-gray-400 text-sm">Domain health</p>
                   </div>
-                  <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+                  <div className="glass-card-premium">
                     <BarChart3 className="w-8 h-8 text-purple-400 mb-4" />
                     <h3 className="text-lg font-semibold text-white mb-2">Last Activity</h3>
                     <p className="text-lg font-bold text-white">{selectedDomainData.lastActivity}</p>

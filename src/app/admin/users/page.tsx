@@ -36,10 +36,10 @@ export default function UsersPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">User Management</h1>
+              <h1 className="text-4xl font-bold text-gradient mb-2">User Management</h1>
               <p className="text-gray-400">Manage user accounts and permissions</p>
             </div>
-            <button className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+            <button className="flex items-center btn-premium px-4 py-2 rounded-lg transition-colors">
               <UserPlus className="w-4 h-4 mr-2" />
               Add User
             </button>
@@ -52,9 +52,9 @@ export default function UsersPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 mb-6"
+              className="glass-card-premium mb-6"
             >
-              <h2 className="text-xl font-bold text-white mb-4">User Stats</h2>
+              <h2 className="text-xl font-bold text-gradient mb-4">User Stats</h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Total Users</span>
@@ -79,9 +79,9 @@ export default function UsersPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
-              <h2 className="text-xl font-bold text-white mb-4">Roles</h2>
+              <h2 className="text-xl font-bold text-gradient mb-4">Roles</h2>
               <div className="space-y-3">
                 {roles.map((role) => (
                   <div key={role.name} className="bg-gray-700/50 rounded-xl p-3">
@@ -101,10 +101,10 @@ export default function UsersPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-white">Users</h2>
+                <h2 className="text-xl font-bold text-gradient">Users</h2>
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <input

@@ -38,7 +38,7 @@ export default function SecurityPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">Security & Access</h1>
+              <h1 className="text-4xl font-bold text-gradient mb-2">Security & Access</h1>
               <p className="text-gray-400">Manage authentication and security settings</p>
             </div>
             <button className="flex items-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
@@ -61,7 +61,7 @@ export default function SecurityPage() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.1 }}
               whileHover={{ scale: 1.05, y: -5 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center justify-between mb-4">
                 <metric.icon className={`w-8 h-8 ${
@@ -86,9 +86,9 @@ export default function SecurityPage() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
-            <h2 className="text-xl font-bold text-white mb-6">Authentication Settings</h2>
+            <h2 className="text-xl font-bold text-gradient mb-6">Authentication Settings</h2>
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Authentication Method</label>
@@ -111,7 +111,7 @@ export default function SecurityPage() {
                     className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
                     readOnly
                   />
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                  <button className="btn-premium px-4 py-2 rounded-lg transition-colors">
                     Regenerate
                   </button>
                 </div>
@@ -123,9 +123,9 @@ export default function SecurityPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            className="glass-card-premium"
           >
-            <h2 className="text-xl font-bold text-white mb-6">Security Features</h2>
+            <h2 className="text-xl font-bold text-gradient mb-6">Security Features</h2>
             <div className="space-y-4">
               {securitySettings.map((setting, index) => (
                 <div key={setting.name} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl">
@@ -150,9 +150,9 @@ export default function SecurityPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+          className="glass-card-premium"
         >
-          <h2 className="text-xl font-bold text-white mb-6">Access Logs</h2>
+          <h2 className="text-xl font-bold text-gradient mb-6">Access Logs</h2>
           <div className="space-y-4">
             {accessLogs.map((log, index) => (
               <div key={index} className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">

@@ -46,7 +46,7 @@ export default function SettingsPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-white mb-2">System Settings</h1>
+              <h1 className="text-4xl font-bold text-gradient mb-2">System Settings</h1>
               <p className="text-gray-400">Configure system preferences and environment</p>
             </div>
             <button className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
@@ -62,11 +62,11 @@ export default function SettingsPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center mb-6">
                 <Settings className="w-6 h-6 text-blue-400 mr-3" />
-                <h2 className="text-xl font-bold text-white">General Settings</h2>
+                <h2 className="text-xl font-bold text-gradient">General Settings</h2>
               </div>
               <div className="space-y-6">
                 <div>
@@ -113,11 +113,11 @@ export default function SettingsPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center mb-6">
                 <Bell className="w-6 h-6 text-yellow-400 mr-3" />
-                <h2 className="text-xl font-bold text-white">Notifications</h2>
+                <h2 className="text-xl font-bold text-gradient">Notifications</h2>
               </div>
               <div className="space-y-4">
                 {[
@@ -151,11 +151,11 @@ export default function SettingsPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center mb-6">
                 <Database className="w-6 h-6 text-green-400 mr-3" />
-                <h2 className="text-xl font-bold text-white">Environment Variables</h2>
+                <h2 className="text-xl font-bold text-gradient">Environment Variables</h2>
               </div>
               <div className="space-y-3">
                 {environmentVariables.map((env, index) => (
@@ -178,11 +178,11 @@ export default function SettingsPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center mb-6">
                 <Globe className="w-6 h-6 text-purple-400 mr-3" />
-                <h2 className="text-xl font-bold text-white">System Info</h2>
+                <h2 className="text-xl font-bold text-gradient">System Info</h2>
               </div>
               <div className="space-y-4">
                 {systemInfo.map((info, index) => (
@@ -198,14 +198,14 @@ export default function SettingsPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+              className="glass-card-premium"
             >
               <div className="flex items-center mb-6">
                 <Palette className="w-6 h-6 text-pink-400 mr-3" />
-                <h2 className="text-xl font-bold text-white">Quick Actions</h2>
+                <h2 className="text-xl font-bold text-gradient">Quick Actions</h2>
               </div>
               <div className="space-y-3">
-                <button className="w-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <button className="w-full flex items-center justify-center btn-premium px-4 py-2 rounded-lg transition-colors">
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Restart System
                 </button>
