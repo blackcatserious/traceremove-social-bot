@@ -100,7 +100,13 @@ export async function POST(request: NextRequest) {
     
     const detectedLang = detectLanguage(message, persona.languages);
     
-    const context = await getContext(message, persona.id);
+    let context = '';
+    try {
+      context = await getContext(message, persona.id);
+    } catch (error) {
+      console.log('Using mock context due to API configuration:', error instanceof Error ? error.message : 'Unknown error');
+      context = '';
+    }
     
     let systemPrompt = persona.systemPrompt;
     if (context) {
