@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Settings, Save, RefreshCw, Database, Globe, Bell, Palette } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -37,36 +36,27 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
+    <div className="main-content">
+      <div className="fade-in">
+        <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-gradient mb-2">System Settings</h1>
-              <p className="text-gray-400">Configure system preferences and environment</p>
+              <h1 className="text-3xl font-bold text-primary mb-2">System Settings</h1>
+              <p className="text-secondary">Configure system preferences and environment</p>
             </div>
-            <button className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+            <button className="flex items-center bg-green-600 hover:bg-green-700 text-primary px-4 py-2 rounded-lg transition-colors">
               <Save className="w-4 h-4 mr-2" />
               Save Changes
             </button>
           </div>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="glass-card-premium"
-            >
+            <div className="card-professional">
               <div className="flex items-center mb-6">
                 <Settings className="w-6 h-6 text-blue-400 mr-3" />
-                <h2 className="text-xl font-bold text-gradient">General Settings</h2>
+                <h2 className="text-xl font-bold text-primary">General Settings</h2>
               </div>
               <div className="space-y-6">
                 <div>
@@ -75,7 +65,7 @@ export default function SettingsPage() {
                     type="text"
                     value={settings.siteName}
                     onChange={(e) => handleSettingChange('siteName', e.target.value)}
-                    className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                    className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -84,7 +74,7 @@ export default function SettingsPage() {
                     <select
                       value={settings.defaultLanguage}
                       onChange={(e) => handleSettingChange('defaultLanguage', e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                      className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                     >
                       <option value="en">English</option>
                       <option value="es">Spanish</option>
@@ -97,7 +87,7 @@ export default function SettingsPage() {
                     <select
                       value={settings.timezone}
                       onChange={(e) => handleSettingChange('timezone', e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                      className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                     >
                       <option value="UTC">UTC</option>
                       <option value="EST">Eastern Time</option>
@@ -107,17 +97,12 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="glass-card-premium"
-            >
+            <div className="card-professional">
               <div className="flex items-center mb-6">
                 <Bell className="w-6 h-6 text-yellow-400 mr-3" />
-                <h2 className="text-xl font-bold text-gradient">Notifications</h2>
+                <h2 className="text-xl font-bold text-primary">Notifications</h2>
               </div>
               <div className="space-y-4">
                 {[
@@ -129,8 +114,8 @@ export default function SettingsPage() {
                 ].map((setting) => (
                   <div key={setting.key} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-white">{setting.label}</h3>
-                      <p className="text-gray-400 text-sm">{setting.description}</p>
+                      <h3 className="font-semibold text-primary">{setting.label}</h3>
+                      <p className="text-secondary text-sm">{setting.description}</p>
                     </div>
                     <div
                       onClick={() => handleSettingChange(setting.key, !settings[setting.key as keyof typeof settings])}
@@ -145,24 +130,19 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="glass-card-premium"
-            >
+            <div className="card-professional">
               <div className="flex items-center mb-6">
                 <Database className="w-6 h-6 text-green-400 mr-3" />
-                <h2 className="text-xl font-bold text-gradient">Environment Variables</h2>
+                <h2 className="text-xl font-bold text-primary">Environment Variables</h2>
               </div>
               <div className="space-y-3">
                 {environmentVariables.map((env, index) => (
                   <div key={env.name} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-white">{env.name}</h3>
-                      <p className="text-gray-400 text-sm font-mono">{env.value}</p>
+                      <h3 className="font-semibold text-primary">{env.name}</h3>
+                      <p className="text-secondary text-sm font-mono">{env.value}</p>
                     </div>
                     <div className={`w-3 h-3 rounded-full ${
                       env.status === 'configured' ? 'bg-green-400' : 'bg-red-400'
@@ -170,55 +150,45 @@ export default function SettingsPage() {
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </div>
           </div>
 
           <div className="lg:col-span-1 space-y-8">
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-              className="glass-card-premium"
-            >
+            <div className="card-professional">
               <div className="flex items-center mb-6">
                 <Globe className="w-6 h-6 text-purple-400 mr-3" />
-                <h2 className="text-xl font-bold text-gradient">System Info</h2>
+                <h2 className="text-xl font-bold text-primary">System Info</h2>
               </div>
               <div className="space-y-4">
                 {systemInfo.map((info, index) => (
                   <div key={info.label} className="flex items-center justify-between">
-                    <span className="text-gray-400">{info.label}</span>
-                    <span className="text-white font-semibold">{info.value}</span>
+                    <span className="text-secondary">{info.label}</span>
+                    <span className="text-primary font-semibold">{info.value}</span>
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 }}
-              className="glass-card-premium"
-            >
+            <div className="card-professional">
               <div className="flex items-center mb-6">
                 <Palette className="w-6 h-6 text-pink-400 mr-3" />
-                <h2 className="text-xl font-bold text-gradient">Quick Actions</h2>
+                <h2 className="text-xl font-bold text-primary">Quick Actions</h2>
               </div>
               <div className="space-y-3">
-                <button className="w-full flex items-center justify-center btn-premium px-4 py-2 rounded-lg transition-colors">
+                <button className="w-full flex items-center justify-center btn-primary px-4 py-2 rounded-lg transition-colors">
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Restart System
                 </button>
-                <button className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <button className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 text-primary px-4 py-2 rounded-lg transition-colors">
                   <Database className="w-4 h-4 mr-2" />
                   Backup Data
                 </button>
-                <button className="w-full flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <button className="w-full flex items-center justify-center bg-purple-600 hover:bg-purple-700 text-primary px-4 py-2 rounded-lg transition-colors">
                   <Settings className="w-4 h-4 mr-2" />
                   Reset to Defaults
                 </button>
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>

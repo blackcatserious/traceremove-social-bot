@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Brain, Globe, Settings, BarChart3, MessageSquare, ExternalLink } from 'lucide-react';
 
 export default function DomainsPage() {
@@ -43,26 +42,21 @@ export default function DomainsPage() {
   const selectedDomainData = domains.find(d => d.id === selectedDomain);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold text-gradient mb-2">Domain Management</h1>
-          <p className="text-gray-400">Manage AI personas and domain configurations</p>
-        </motion.div>
+    <div className="main-content">
+      <div className="fade-in">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-primary mb-2">Domain Management</h1>
+          <p className="text-secondary">Manage AI personas and domain configurations</p>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <div className="glass-card-premium">
-              <h2 className="text-xl font-bold text-gradient mb-4">Domains</h2>
+            <div className="card-professional">
+              <h2 className="text-xl font-bold text-primary mb-4">Domains</h2>
               <div className="space-y-3">
                 {domains.map((domain) => (
-                  <motion.div
+                  <div
                     key={domain.id}
-                    whileHover={{ scale: 1.02 }}
                     onClick={() => setSelectedDomain(domain.id)}
                     className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
                       selectedDomain === domain.id
@@ -71,12 +65,12 @@ export default function DomainsPage() {
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-white">{domain.name}</h3>
+                      <h3 className="font-semibold text-primary">{domain.name}</h3>
                       <div className="w-3 h-3 rounded-full bg-green-400"></div>
                     </div>
-                    <p className="text-gray-400 text-sm">{domain.persona}</p>
+                    <p className="text-secondary text-sm">{domain.persona}</p>
                     <p className="text-gray-500 text-xs">{domain.conversations} conversations</p>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -84,14 +78,10 @@ export default function DomainsPage() {
 
           <div className="lg:col-span-2">
             {selectedDomainData && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="space-y-6"
-              >
-                <div className="glass-card-premium">
+              <div className="space-y-6">
+                <div className="card-professional">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-gradient">
+                    <h2 className="text-xl font-bold text-primary">
                       {selectedDomainData.name} Configuration
                     </h2>
                     <a
@@ -111,7 +101,7 @@ export default function DomainsPage() {
                       <input
                         type="text"
                         value={selectedDomainData.persona}
-                        className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                        className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                         readOnly
                       />
                     </div>
@@ -120,7 +110,7 @@ export default function DomainsPage() {
                       <input
                         type="text"
                         value={selectedDomainData.language}
-                        className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                        className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                         readOnly
                       />
                     </div>
@@ -128,7 +118,7 @@ export default function DomainsPage() {
                       <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
                       <textarea
                         value={selectedDomainData.description}
-                        className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                        className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                         rows={3}
                         readOnly
                       />
@@ -136,27 +126,27 @@ export default function DomainsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="glass-card-premium">
+                <div className="grid-professional grid-cols-3">
+                  <div className="card-professional">
                     <MessageSquare className="w-8 h-8 text-blue-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Conversations</h3>
-                    <p className="text-3xl font-bold text-white">{selectedDomainData.conversations}</p>
-                    <p className="text-gray-400 text-sm">Total interactions</p>
+                    <h3 className="text-lg font-semibold text-primary mb-2">Conversations</h3>
+                    <p className="text-3xl font-bold text-primary">{selectedDomainData.conversations}</p>
+                    <p className="text-secondary text-sm">Total interactions</p>
                   </div>
-                  <div className="glass-card-premium">
+                  <div className="card-professional">
                     <Globe className="w-8 h-8 text-green-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Status</h3>
+                    <h3 className="text-lg font-semibold text-primary mb-2">Status</h3>
                     <p className="text-3xl font-bold text-green-400">{selectedDomainData.status}</p>
-                    <p className="text-gray-400 text-sm">Domain health</p>
+                    <p className="text-secondary text-sm">Domain health</p>
                   </div>
-                  <div className="glass-card-premium">
+                  <div className="card-professional">
                     <BarChart3 className="w-8 h-8 text-purple-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Last Activity</h3>
-                    <p className="text-lg font-bold text-white">{selectedDomainData.lastActivity}</p>
-                    <p className="text-gray-400 text-sm">Recent interaction</p>
+                    <h3 className="text-lg font-semibold text-primary mb-2">Last Activity</h3>
+                    <p className="text-lg font-bold text-primary">{selectedDomainData.lastActivity}</p>
+                    <p className="text-secondary text-sm">Recent interaction</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
           </div>
         </div>

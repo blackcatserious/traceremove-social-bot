@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Shield, Key, Lock, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
 
 export default function SecurityPage() {
@@ -29,39 +28,26 @@ export default function SecurityPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
+    <div className="main-content">
+      <div className="fade-in">
+        <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-gradient mb-2">Security & Access</h1>
-              <p className="text-gray-400">Manage authentication and security settings</p>
+              <h1 className="text-3xl font-bold text-primary mb-2">Security & Access</h1>
+              <p className="text-secondary">Manage authentication and security settings</p>
             </div>
-            <button className="flex items-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+            <button className="flex items-center bg-red-600 hover:bg-red-700 text-primary px-4 py-2 rounded-lg transition-colors">
               <AlertTriangle className="w-4 h-4 mr-2" />
               Security Audit
             </button>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-        >
+        <div className="grid-professional grid-cols-4 mb-8">
           {securityMetrics.map((metric, index) => (
-            <motion.div
+            <div
               key={metric.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.05, y: -5 }}
-              className="glass-card-premium"
+              className="card-professional"
             >
               <div className="flex items-center justify-between mb-4">
                 <metric.icon className={`w-8 h-8 ${
@@ -75,27 +61,22 @@ export default function SecurityPage() {
                   metric.status === 'normal' ? 'bg-yellow-400' : 'bg-red-400'
                 }`}></div>
               </div>
-              <div className="text-3xl font-bold text-white mb-1">{metric.value}</div>
-              <div className="text-gray-400 text-sm">{metric.label}</div>
-            </motion.div>
+              <div className="text-3xl font-bold text-primary mb-1">{metric.value}</div>
+              <div className="text-secondary text-sm">{metric.label}</div>
+            </div>
           ))}
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass-card-premium"
-          >
-            <h2 className="text-xl font-bold text-gradient mb-6">Authentication Settings</h2>
+          <div className="card-professional">
+            <h2 className="text-xl font-bold text-primary mb-6">Authentication Settings</h2>
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Authentication Method</label>
                 <select
                   value={authMethod}
                   onChange={(e) => setAuthMethod(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                  className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                 >
                   <option value="token">Token-based</option>
                   <option value="oauth">OAuth 2.0</option>
@@ -108,30 +89,25 @@ export default function SecurityPage() {
                   <input
                     type="password"
                     value="••••••••••••••••"
-                    className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                    className="flex-1 px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                     readOnly
                   />
-                  <button className="btn-premium px-4 py-2 rounded-lg transition-colors">
+                  <button className="btn-primary px-4 py-2 rounded-lg transition-colors">
                     Regenerate
                   </button>
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="glass-card-premium"
-          >
-            <h2 className="text-xl font-bold text-gradient mb-6">Security Features</h2>
+          <div className="card-professional">
+            <h2 className="text-xl font-bold text-primary mb-6">Security Features</h2>
             <div className="space-y-4">
               {securitySettings.map((setting, index) => (
                 <div key={setting.name} className="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-white">{setting.name}</h3>
-                    <p className="text-gray-400 text-sm">{setting.description}</p>
+                    <h3 className="font-semibold text-primary">{setting.name}</h3>
+                    <p className="text-secondary text-sm">{setting.description}</p>
                   </div>
                   <div className={`w-12 h-6 rounded-full p-1 transition-colors ${
                     setting.enabled ? 'bg-green-600' : 'bg-gray-600'
@@ -143,16 +119,11 @@ export default function SecurityPage() {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-card-premium"
-        >
-          <h2 className="text-xl font-bold text-gradient mb-6">Access Logs</h2>
+        <div className="card-professional">
+          <h2 className="text-xl font-bold text-primary mb-6">Access Logs</h2>
           <div className="space-y-4">
             {accessLogs.map((log, index) => (
               <div key={index} className="flex items-center justify-between p-4 bg-gray-700/50 rounded-xl">
@@ -163,15 +134,15 @@ export default function SecurityPage() {
                     log.status === 'info' ? 'bg-blue-400' : 'bg-red-400'
                   }`}></div>
                   <div>
-                    <p className="text-white font-medium">{log.action}</p>
-                    <p className="text-gray-400 text-sm">{log.user} • {log.ip}</p>
+                    <p className="text-primary font-medium">{log.action}</p>
+                    <p className="text-secondary text-sm">{log.user} • {log.ip}</p>
                   </div>
                 </div>
-                <span className="text-gray-400 text-sm">{log.timestamp}</span>
+                <span className="text-secondary text-sm">{log.timestamp}</span>
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

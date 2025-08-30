@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import { BarChart3, TrendingUp, Users, MessageSquare, Activity } from 'lucide-react';
 
 export default function AnalyticsPage() {
@@ -19,86 +18,60 @@ export default function AnalyticsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold text-gradient mb-2">Analytics Dashboard</h1>
-          <p className="text-gray-400">Monitor performance across all domains</p>
-        </motion.div>
+    <div className="main-content">
+      <div className="fade-in">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-primary mb-2">Analytics Dashboard</h1>
+          <p className="text-secondary">Monitor performance across all domains</p>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-        >
+        <div className="grid-professional grid-cols-4 mb-8">
           {metrics.map((metric, index) => (
-            <motion.div
-              key={metric.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.05, y: -5 }}
-              className="glass-card-premium"
-            >
+            <div key={metric.label} className="card-professional">
               <div className="flex items-center justify-between mb-4">
-                <metric.icon className={`w-8 h-8 text-${metric.color}-400`} />
+                <metric.icon className="w-6 h-6 text-primary" />
                 <span className={`text-sm font-medium ${
-                  metric.change.startsWith('+') ? 'text-green-400' : 'text-red-400'
+                  metric.change.startsWith('+') ? 'status-active' : 'status-inactive'
                 }`}>
                   {metric.change}
                 </span>
               </div>
-              <div className="text-3xl font-bold text-white mb-1">{metric.value}</div>
-              <div className="text-gray-400 text-sm">{metric.label}</div>
-            </motion.div>
+              <div className="text-2xl font-bold text-primary mb-1">{metric.value}</div>
+              <div className="text-secondary text-sm">{metric.label}</div>
+            </div>
           ))}
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass-card-premium"
-          >
-            <h2 className="text-xl font-bold text-gradient mb-6">Domain Performance</h2>
+          <div className="card-professional">
+            <h2 className="text-xl font-bold text-primary mb-6">Domain Performance</h2>
             <div className="space-y-4">
               {domainStats.map((domain, index) => (
                 <div key={domain.domain} className="bg-gray-700/50 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-white">{domain.domain}</h3>
+                    <h3 className="font-semibold text-primary">{domain.domain}</h3>
                     <div className="flex items-center">
                       <span className="text-yellow-400 mr-1">★</span>
-                      <span className="text-white">{domain.satisfaction}</span>
+                      <span className="text-primary">{domain.satisfaction}</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-gray-400 text-sm">Conversations</p>
-                      <p className="text-white font-semibold">{domain.conversations}</p>
+                      <p className="text-secondary text-sm">Conversations</p>
+                      <p className="text-primary font-semibold">{domain.conversations}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400 text-sm">Users</p>
-                      <p className="text-white font-semibold">{domain.users}</p>
+                      <p className="text-secondary text-sm">Users</p>
+                      <p className="text-primary font-semibold">{domain.users}</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="glass-card-premium"
-          >
-            <h2 className="text-xl font-bold text-gradient mb-6">Recent Activity</h2>
+          <div className="card-professional">
+            <h2 className="text-xl font-bold text-primary mb-6">Recent Activity</h2>
             <div className="space-y-4">
               {[
                 { time: '2 minutes ago', event: 'New conversation on traceremove.com', type: 'chat' },
@@ -115,30 +88,25 @@ export default function AnalyticsPage() {
                     activity.type === 'social' ? 'bg-orange-400' : 'bg-gray-400'
                   }`}></div>
                   <div className="flex-1">
-                    <p className="text-white text-sm">{activity.event}</p>
-                    <p className="text-gray-400 text-xs">{activity.time}</p>
+                    <p className="text-primary text-sm">{activity.event}</p>
+                    <p className="text-secondary text-xs">{activity.time}</p>
                   </div>
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-card-premium"
-        >
-          <h2 className="text-xl font-bold text-gradient mb-6">Usage Trends</h2>
+        <div className="card-professional">
+          <h2 className="text-xl font-bold text-primary mb-6">Usage Trends</h2>
           <div className="h-64 flex items-center justify-center">
             <div className="text-center">
               <BarChart3 className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">Chart visualization would be implemented here</p>
+              <p className="text-secondary">Chart visualization would be implemented here</p>
               <p className="text-gray-500 text-sm">Integration with charting library needed</p>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

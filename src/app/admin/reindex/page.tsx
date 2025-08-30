@@ -62,7 +62,7 @@ export default function AdminReindexPage() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-gray-800 rounded-lg p-8 w-full max-w-md">
-          <h1 className="text-2xl font-bold text-white mb-6 text-center">
+          <h1 className="text-2xl font-bold text-primary mb-6 text-center">
             Admin Authentication
           </h1>
           <div className="space-y-4">
@@ -71,12 +71,12 @@ export default function AdminReindexPage() {
               placeholder="Enter admin token"
               value={adminToken}
               onChange={(e) => setAdminToken(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+              className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
               onKeyPress={(e) => e.key === 'Enter' && authenticate()}
             />
             <button
               onClick={authenticate}
-              className="w-full btn-premium font-medium py-2 px-4 rounded-lg transition-colors"
+              className="w-full btn-primary font-medium py-2 px-4 rounded-lg transition-colors"
             >
               Authenticate
             </button>
@@ -91,12 +91,12 @@ export default function AdminReindexPage() {
       <div className="max-w-4xl mx-auto">
         <div className="bg-gray-800 rounded-lg p-8">
           <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-3xl font-bold text-primary">
               RAG Reindex Administration
             </h1>
             <button
               onClick={() => setIsAuthenticated(false)}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-secondary hover:text-primary transition-colors"
             >
               Logout
             </button>
@@ -107,17 +107,17 @@ export default function AdminReindexPage() {
               <div key={persona.id} className="bg-gray-700 rounded-lg p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-white mb-1">
+                    <h2 className="text-xl font-semibold text-primary mb-1">
                       {persona.name}
                     </h2>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-secondary text-sm">
                       Domain: {persona.domain}
                     </p>
                   </div>
                   <button
                     onClick={() => reindexPersona(persona.id)}
                     disabled={loading[persona.id]}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-primary font-medium py-2 px-4 rounded-lg transition-colors"
                   >
                     {loading[persona.id] ? 'Reindexing...' : 'Reindex'}
                   </button>
@@ -157,13 +157,13 @@ export default function AdminReindexPage() {
           </div>
 
           <div className="mt-8 p-4 bg-gray-700 rounded-lg">
-            <h3 className="text-lg font-semibold text-white mb-2">
+            <h3 className="text-lg font-semibold text-primary mb-2">
               API Usage
             </h3>
             <div className="text-sm text-gray-300 space-y-1">
               <p>GET /api/admin/reindex - View available personas</p>
               <p>POST /api/admin/reindex?persona=&lt;id&gt; - Reindex specific persona</p>
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-xs text-secondary mt-2">
                 Requires Authorization: Bearer &lt;ADMIN_TOKEN&gt; header
               </p>
             </div>

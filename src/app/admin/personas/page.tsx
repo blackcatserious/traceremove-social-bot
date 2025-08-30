@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Brain, MessageSquare, Globe, Settings, Edit3 } from 'lucide-react';
 
 export default function PersonasPage() {
@@ -43,26 +42,21 @@ export default function PersonasPage() {
   const selectedPersonaData = personas.find(p => p.id === selectedPersona);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold text-gradient mb-2">AI Personas</h1>
-          <p className="text-gray-400">Configure and manage AI personality profiles</p>
-        </motion.div>
+    <div className="main-content">
+      <div className="fade-in">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-primary mb-2">AI Personas</h1>
+          <p className="text-secondary">Configure and manage AI personality profiles</p>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <div className="glass-card-premium">
-              <h2 className="text-xl font-bold text-gradient mb-4">Personas</h2>
+            <div className="card-professional">
+              <h2 className="text-xl font-bold text-primary mb-4">Personas</h2>
               <div className="space-y-3">
                 {personas.map((persona) => (
-                  <motion.div
+                  <div
                     key={persona.id}
-                    whileHover={{ scale: 1.02 }}
                     onClick={() => setSelectedPersona(persona.id)}
                     className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
                       selectedPersona === persona.id
@@ -72,11 +66,11 @@ export default function PersonasPage() {
                   >
                     <div className="flex items-center mb-2">
                       <Brain className="w-5 h-5 text-blue-400 mr-2" />
-                      <h3 className="font-semibold text-white">{persona.name}</h3>
+                      <h3 className="font-semibold text-primary">{persona.name}</h3>
                     </div>
-                    <p className="text-gray-400 text-sm">{persona.domain}</p>
+                    <p className="text-secondary text-sm">{persona.domain}</p>
                     <p className="text-gray-500 text-xs">{persona.language}</p>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -84,14 +78,10 @@ export default function PersonasPage() {
 
           <div className="lg:col-span-2">
             {selectedPersonaData && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="space-y-6"
-              >
-                <div className="glass-card-premium">
+              <div className="space-y-6">
+                <div className="card-professional">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-gradient">
+                    <h2 className="text-xl font-bold text-primary">
                       {selectedPersonaData.name} Configuration
                     </h2>
                     <button className="flex items-center text-blue-400 hover:text-blue-300 transition-colors">
@@ -106,7 +96,7 @@ export default function PersonasPage() {
                       <input
                         type="text"
                         value={selectedPersonaData.chatTitle}
-                        className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                        className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                         readOnly
                       />
                     </div>
@@ -115,7 +105,7 @@ export default function PersonasPage() {
                       <input
                         type="text"
                         value={selectedPersonaData.chatSubtitle}
-                        className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                        className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                         readOnly
                       />
                     </div>
@@ -123,7 +113,7 @@ export default function PersonasPage() {
                       <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
                       <textarea
                         value={selectedPersonaData.description}
-                        className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                        className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                         rows={3}
                         readOnly
                       />
@@ -132,7 +122,7 @@ export default function PersonasPage() {
                       <label className="block text-sm font-medium text-gray-300 mb-2">System Prompt</label>
                       <textarea
                         value={selectedPersonaData.systemPrompt}
-                        className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg border border-gray-600"
+                        className="w-full px-4 py-2 bg-gray-700 text-primary rounded-lg border border-gray-600"
                         rows={6}
                         readOnly
                       />
@@ -140,27 +130,27 @@ export default function PersonasPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="glass-card-premium">
+                <div className="grid-professional grid-cols-3">
+                  <div className="card-professional">
                     <Globe className="w-8 h-8 text-blue-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Domain</h3>
-                    <p className="text-lg font-bold text-white">{selectedPersonaData.domain}</p>
-                    <p className="text-gray-400 text-sm">Target domain</p>
+                    <h3 className="text-lg font-semibold text-primary mb-2">Domain</h3>
+                    <p className="text-lg font-bold text-primary">{selectedPersonaData.domain}</p>
+                    <p className="text-secondary text-sm">Target domain</p>
                   </div>
-                  <div className="glass-card-premium">
+                  <div className="card-professional">
                     <MessageSquare className="w-8 h-8 text-green-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Languages</h3>
-                    <p className="text-lg font-bold text-white">{selectedPersonaData.language}</p>
-                    <p className="text-gray-400 text-sm">Supported languages</p>
+                    <h3 className="text-lg font-semibold text-primary mb-2">Languages</h3>
+                    <p className="text-lg font-bold text-primary">{selectedPersonaData.language}</p>
+                    <p className="text-secondary text-sm">Supported languages</p>
                   </div>
-                  <div className="glass-card-premium">
+                  <div className="card-professional">
                     <Settings className="w-8 h-8 text-purple-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-white mb-2">Status</h3>
-                    <p className="text-lg font-bold text-green-400">Active</p>
-                    <p className="text-gray-400 text-sm">Persona status</p>
+                    <h3 className="text-lg font-semibold text-primary mb-2">Status</h3>
+                    <p className="text-lg font-bold status-active">Active</p>
+                    <p className="text-secondary text-sm">Persona status</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             )}
           </div>
         </div>

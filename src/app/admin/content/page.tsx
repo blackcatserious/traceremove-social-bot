@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Database, FileText, RefreshCw, Plus, Edit3, Trash2 } from 'lucide-react';
 
 export default function ContentPage() {
@@ -21,34 +20,29 @@ export default function ContentPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
+    <div className="main-content">
+      <div className="fade-in">
+        <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-gradient mb-2">Content Management</h1>
-              <p className="text-gray-400">Manage Notion databases and RAG content</p>
+              <h1 className="text-3xl font-bold text-primary mb-2">Content Management</h1>
+              <p className="text-secondary">Manage Notion databases and RAG content</p>
             </div>
-            <button className="flex items-center btn-premium px-4 py-2 rounded-lg transition-colors">
+            <button className="btn-primary">
               <Plus className="w-4 h-4 mr-2" />
               Add Content
             </button>
           </div>
-        </motion.div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1">
-            <div className="glass-card-premium">
-              <h2 className="text-xl font-bold text-gradient mb-4">Databases</h2>
+            <div className="card-professional">
+              <h2 className="text-xl font-bold text-primary mb-4">Databases</h2>
               <div className="space-y-3">
                 {databases.map((db) => (
-                  <motion.div
+                  <div
                     key={db.id}
-                    whileHover={{ scale: 1.02 }}
                     onClick={() => setSelectedDatabase(db.id)}
                     className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
                       selectedDatabase === db.id
@@ -58,16 +52,16 @@ export default function ContentPage() {
                   >
                     <div className="flex items-center mb-2">
                       <Database className="w-5 h-5 text-blue-400 mr-2" />
-                      <h3 className="font-semibold text-white">{db.name}</h3>
+                      <h3 className="font-semibold text-primary">{db.name}</h3>
                     </div>
-                    <p className="text-gray-400 text-sm">{db.domain}</p>
+                    <p className="text-secondary text-sm">{db.domain}</p>
                     <p className="text-gray-500 text-xs">{db.entries} entries</p>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-700">
-                <button className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <button className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 text-primary px-4 py-2 rounded-lg transition-colors">
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Reindex All
                 </button>
@@ -76,13 +70,9 @@ export default function ContentPage() {
           </div>
 
           <div className="lg:col-span-3">
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="glass-card-premium"
-            >
+            <div className="card-professional">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gradient">
+                <h2 className="text-xl font-bold text-primary">
                   {databases.find(db => db.id === selectedDatabase)?.name} Content
                 </h2>
                 <div className="flex items-center space-x-2">
@@ -95,16 +85,15 @@ export default function ContentPage() {
 
               <div className="space-y-4">
                 {contentEntries.map((entry) => (
-                  <motion.div
+                  <div
                     key={entry.id}
-                    whileHover={{ scale: 1.01 }}
                     className="bg-gray-700/50 rounded-xl p-4"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center mb-2">
-                          <FileText className="w-5 h-5 text-gray-400 mr-2" />
-                          <h3 className="font-semibold text-white">{entry.title}</h3>
+                          <FileText className="w-5 h-5 text-secondary mr-2" />
+                          <h3 className="font-semibold text-primary">{entry.title}</h3>
                           <span className={`ml-3 px-2 py-1 rounded-full text-xs ${
                             entry.status === 'Published' ? 'bg-green-600/20 text-green-400' :
                             entry.status === 'Draft' ? 'bg-yellow-600/20 text-yellow-400' :
@@ -113,42 +102,42 @@ export default function ContentPage() {
                             {entry.status}
                           </span>
                         </div>
-                        <div className="flex items-center text-sm text-gray-400">
+                        <div className="flex items-center text-sm text-secondary">
                           <span className="mr-4">{entry.type}</span>
                           <span>Updated {entry.updated}</span>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <button className="p-2 text-gray-400 hover:text-blue-400 transition-colors">
+                        <button className="p-2 text-secondary hover:text-blue-400 transition-colors">
                           <Edit3 className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-red-400 transition-colors">
+                        <button className="p-2 text-secondary hover:text-red-400 transition-colors">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
 
               <div className="mt-6 p-4 bg-gray-700/30 rounded-xl">
-                <h3 className="text-lg font-semibold text-white mb-2">RAG Status</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <h3 className="text-lg font-semibold text-primary mb-2">RAG Status</h3>
+                <div className="grid-professional grid-cols-3">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-green-400">156</p>
-                    <p className="text-gray-400 text-sm">Indexed Documents</p>
+                    <p className="text-secondary text-sm">Indexed Documents</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-blue-400">2.3k</p>
-                    <p className="text-gray-400 text-sm">Vector Embeddings</p>
+                    <p className="text-secondary text-sm">Vector Embeddings</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-purple-400">98%</p>
-                    <p className="text-gray-400 text-sm">Index Health</p>
+                    <p className="text-secondary text-sm">Index Health</p>
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>
