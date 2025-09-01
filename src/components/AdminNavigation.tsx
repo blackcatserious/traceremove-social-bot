@@ -17,7 +17,17 @@ import {
   Menu,
   X,
   FolderOpen,
-  Zap
+  Zap,
+  Activity,
+  Download,
+  Workflow,
+  Bell,
+  BarChart,
+  Cpu,
+  Database,
+  Book,
+  Heart,
+  Rocket
 } from 'lucide-react';
 
 const navigationItems = [
@@ -33,6 +43,17 @@ const navigationItems = [
   { href: '/admin/users', label: 'User Management', icon: Users },
   { href: '/admin/security', label: 'Security & Access', icon: Shield },
   { href: '/admin/settings', label: 'System Settings', icon: Settings },
+  { href: '/admin/monitoring', label: 'System Monitoring', icon: Activity },
+  { href: '/admin/logs', label: 'Logs Management', icon: FileText },
+  { href: '/admin/backup', label: 'Backup & Export', icon: Download },
+  { href: '/admin/workflows', label: 'Workflow Automation', icon: Workflow },
+  { href: '/admin/notifications', label: 'Notifications', icon: Bell },
+  { href: '/admin/reports', label: 'Reports Dashboard', icon: BarChart },
+  { href: '/admin/models', label: 'Model Management', icon: Cpu },
+  { href: '/admin/vectors', label: 'Vector Database', icon: Database },
+  { href: '/admin/api-docs', label: 'API Documentation', icon: Book },
+  { href: '/admin/health', label: 'System Health', icon: Heart },
+  { href: '/admin/deployments', label: 'Deployments', icon: Rocket },
 ];
 
 export default function AdminNavigation() {
