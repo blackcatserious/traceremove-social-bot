@@ -4,13 +4,13 @@ import { getContext } from '@/lib/rag';
 import { generateResponse, pickModel } from '@/lib/models';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const q = searchParams.get('q') || '';
-    const persona = (searchParams.get('persona') || 'public') as 'public' | 'internal';
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const q = request.nextUrl.searchParams.get('q') || '';
+    const persona = (request.nextUrl.searchParams.get('persona') || 'public') as 'public' | 'internal';
+    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
     
     if (!q.trim()) {
       return NextResponse.json({ error: 'Query parameter q is required' }, { status: 400 });

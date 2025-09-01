@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/database';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const persona = searchParams.get('persona') || 'public';
+    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
+    const persona = request.nextUrl.searchParams.get('persona') || 'public';
     
     const visibilityCondition = persona === 'public' 
       ? "visibility = 'public'" 

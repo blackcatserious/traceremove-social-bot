@@ -16,10 +16,9 @@ function getPersonaByKey(key: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const url = new URL(request.url);
-    const personaKey = url.searchParams.get('persona') || '';
-    const syncType = url.searchParams.get('type') || 'persona';
-    const force = url.searchParams.get('force') === 'true';
+    const personaKey = request.nextUrl.searchParams.get('persona') || '';
+    const syncType = request.nextUrl.searchParams.get('type') || 'persona';
+    const force = request.nextUrl.searchParams.get('force') === 'true';
     
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     const adminToken = process.env.ADMIN_TOKEN;
@@ -58,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
     
     if (syncType === 'database') {
-      const dbName = url.searchParams.get('database');
+      const dbName = request.nextUrl.searchParams.get('database');
       if (!dbName) {
         return NextResponse.json({ error: 'Database name required for database sync' }, { status: 400 });
       }
