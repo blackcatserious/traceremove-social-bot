@@ -1,16 +1,9 @@
 {
-  "crons": [
-    {
-      "path": "/api/etl/incremental",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/etl/full", 
-      "schedule": "0 2 * * *"
-    }
-  ],
   "functions": {
     "src/app/api/etl/**": {
+      "maxDuration": 300
+    },
+    "src/app/api/admin/**": {
       "maxDuration": 300
     }
   }
