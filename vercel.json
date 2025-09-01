@@ -9,10 +9,6 @@
       "schedule": "0 8 * * *"
     },
     {
-      "path": "/api/etl/incremental",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/etl/full",
       "schedule": "0 2 * * *"
     }
