@@ -17,7 +17,7 @@ let openaiClient: OpenAI | null = null;
 let notionClient: NotionClient | null = null;
 let vectorIndex: Index | null = null;
 
-function getOpenAIClient(): OpenAI {
+export function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey || apiKey.includes('your_') || apiKey === '') {
@@ -39,7 +39,7 @@ function getNotionClient(): NotionClient {
   return notionClient;
 }
 
-function getVectorIndex(): Index {
+export function getVectorIndex(): Index {
   if (!vectorIndex) {
     const url = process.env.UPSTASH_VECTOR_REST_URL;
     const token = process.env.UPSTASH_VECTOR_REST_TOKEN;
@@ -301,15 +301,17 @@ Source: Планирование контента\nСтратегическое 
   return '';
 }
 
-export async function getContext(query: string, personaId: string, limit: number = 5): Promise<string> {
+export async function getContext(query: string, personaId: string, limit: number = 5, persona: 'public' | 'internal' = 'public'): Promise<string> {
   try {
     const queryEmbedding = await embedText(query);
     const vectorIndex = getVectorIndex();
     
+    const collection = persona === 'public' ? 'traceremove_public' : 'traceremove_internal';
+    
     const results = await vectorIndex.query({
       vector: queryEmbedding,
       topK: limit,
-      filter: `personaId = "${personaId}"`,
+      filter: `personaId = "${personaId}" AND collection = "${collection}"`,
       includeMetadata: true,
     });
     
