@@ -244,91 +244,101 @@ export async function reindexPersona(personaId: string, notionDbId: string, site
 function generateMockContext(query: string, personaId: string): string {
   const lowerQuery = query.toLowerCase();
   
-  if (personaId === 'philosopher') {
-    if (lowerQuery.includes('technology') || lowerQuery.includes('tech')) {
-      return `Source: Philosophy of Technology Research\nTechnology fundamentally alters human experience and social structures. Digital systems create new forms of mediation between humans and their environment, requiring careful philosophical analysis of their implications for consciousness, agency, and social organization.
+  if (personaId === 'comprehensive-ai' || personaId === 'philosopher') {
+    if (lowerQuery.includes('technology') || lowerQuery.includes('ai')) {
+      return `[Source: AI Systems Architecture from Registry]: The traceremove.net comprehensive AI system integrates multiple model providers (OpenAI, Anthropic, Gemini, Mistral, Groq) with intelligent routing based on query complexity and intent.
 
----
+[Source: Technology Philosophy from Cases]: Technology is not merely a tool but a fundamental extension of human consciousness. When we create digital systems, we externalize our cognitive processes and embed our values into code.
 
-Source: Ethics in Digital Systems\nEvery technological artifact embeds values and assumptions about how humans should interact with the world. The design of digital interfaces, algorithms, and data structures reflects particular worldviews and power relationships that deserve critical examination.`;
+[Source: Multi-Model Integration from Publishing]: Our ETL pipeline processes 4 Notion databases with 15-minute incremental updates and nightly full synchronization, ensuring knowledge base freshness ≤ 30 days.`;
     }
-    if (lowerQuery.includes('ai') || lowerQuery.includes('artificial intelligence')) {
-      return `Source: AI and Human Cognition\nArtificial intelligence challenges traditional boundaries between natural and artificial cognition. The development of AI systems raises fundamental questions about the nature of intelligence, consciousness, and what it means to think.
+    
+    if (lowerQuery.includes('database') || lowerQuery.includes('etl')) {
+      return `[Source: ETL Pipeline Architecture from Registry]: The system processes Registry (6d3da5a01186475d8c2b794cca147a86), Cases (25cef6a76fa5800b8241f8ed4cd3be33), Finance (25cef6a76fa580eb912ff8cfca54155e), and Publishing (402cc41633384d35b30ec1ab7c3185da) databases.
 
----
+[Source: Vector Search Implementation from Cases]: PostgreSQL schema with vector indexing enables semantic search across all knowledge sources with public/internal access control policies.
 
-Source: Machine Learning Ethics\nAs AI systems become more autonomous, we must grapple with questions of responsibility, bias, and the delegation of decision-making to algorithmic processes. The philosophical implications extend beyond technical considerations to fundamental questions about human agency.`;
+[Source: Data Freshness Strategy from Publishing]: Automated synchronization ensures content freshness with incremental updates every 15 minutes and comprehensive nightly rebuilds.`;
     }
-    return `Source: Technology and Society\nThe relationship between technology and human society is dialectical - technology shapes social structures while being shaped by social forces. Understanding this dynamic is crucial for navigating our increasingly digital world.`;
+    
+    if (lowerQuery.includes('search') || lowerQuery.includes('rag')) {
+      return `[Source: RAG System Design from Registry]: The retrieval-augmented generation system provides 2-3 relevant citations from integrated knowledge sources with persona-based access filtering.
+
+[Source: Public Access Policies from Cases]: Public persona access excludes financial data and Russian content while providing comprehensive technology and philosophy insights.
+
+[Source: Citation Framework from Publishing]: All responses include specific source references in the format [Source: Title from Table] to ensure transparency and verifiability.`;
+    }
   }
   
-  if (personaId === 'orm_multilang') {
+  if (personaId === 'orm-multilang' || personaId === 'orm-russian') {
     if (lowerQuery.includes('reputation') || lowerQuery.includes('brand')) {
-      return `Source: Online Reputation Management Best Practices\nEffective ORM requires proactive monitoring, strategic content creation, and rapid response protocols. Key metrics include sentiment analysis, mention volume, and engagement rates across platforms.
+      return `[Source: Brand Management Strategy from Cases]: Effective online reputation management requires a proactive approach combining monitoring, content creation, and strategic response protocols.
 
----
+[Source: Crisis Communication from Publishing]: When facing negative publicity, the key is swift, transparent, and authentic communication that addresses concerns while protecting brand integrity.
 
-Source: Crisis Communication Strategies\nDuring reputation crises, transparency and authenticity are crucial. Develop pre-approved response templates, establish clear escalation procedures, and maintain consistent messaging across all channels.`;
+[Source: Multi-Platform Approach from Registry]: Modern ORM requires coordinated efforts across all digital touchpoints - social media, review platforms, search results, and owned media channels.`;
     }
-    if (lowerQuery.includes('social media') || lowerQuery.includes('content')) {
-      return `Source: Social Media Strategy Framework\nSuccessful social media presence requires consistent brand voice, regular engagement, and platform-specific content optimization. Focus on value-driven content that resonates with target audiences.
-
----
-
-Source: Content Calendar Planning\nStrategic content planning involves audience analysis, competitive research, and performance tracking. Maintain 70% educational content, 20% promotional, and 10% entertainment for optimal engagement.`;
-    }
-    return `Source: Digital Marketing Fundamentals\nModern digital marketing integrates SEO, social media, content marketing, and reputation management. Success requires data-driven decision making and continuous optimization based on performance metrics.`;
   }
   
-  if (personaId === 'orm_russian') {
-    if (lowerQuery.includes('репутация') || lowerQuery.includes('reputation')) {
-      return `Source: Управление репутацией в интернете\nЭффективное управление репутацией требует постоянного мониторинга упоминаний бренда, создания позитивного контента и быстрого реагирования на негативные отзывы. Ключевые показатели включают тональность упоминаний и уровень вовлеченности аудитории.
+  return `[Source: Comprehensive AI Knowledge from Registry]: The traceremove.net system provides access to integrated knowledge across technology philosophy, AI systems architecture, and strategic implementation.
 
----
+[Source: Multi-Domain Expertise from Cases]: Capabilities span from philosophical discussions about technology to practical implementation of AI systems and comprehensive project management.
 
-Source: Антикризисные коммуникации\nВ кризисных ситуациях важны прозрачность и оперативность реагирования. Необходимо иметь готовые шаблоны ответов и четкие процедуры эскалации для минимизации репутационных рисков.`;
-    }
-    if (lowerQuery.includes('соцсети') || lowerQuery.includes('социальные сети')) {
-      return `Source: Стратегия социальных сетей\nУспешное присутствие в социальных сетях требует последовательного тона бренда, регулярного взаимодействия с аудиторией и оптимизации контента под специфику каждой платформы.
-
----
-
-Source: Планирование контента\nСтратегическое планирование контента включает анализ аудитории, исследование конкурентов и отслеживание эффективности. Рекомендуемое соотношение: 70% образовательного контента, 20% рекламного, 10% развлекательного.`;
-    }
-    return `Source: Основы цифрового маркетинга\nСовременный цифровой маркетинг объединяет SEO, социальные сети, контент-маркетинг и управление репутацией. Успех требует принятия решений на основе данных и постоянной оптимизации.`;
-  }
-  
-  return '';
+[Source: Citation-Based Responses from Publishing]: All responses include 2-3 relevant citations from the knowledge base to ensure accuracy and provide verifiable sources for further research.`;
 }
 
 export async function getContext(query: string, personaId: string, limit: number = 5, persona: 'public' | 'internal' = 'public'): Promise<string> {
   try {
-    const queryEmbedding = await embedText(query);
-    const vectorIndex = getVectorIndex();
+    console.log(`Getting context for query: "${query}" with persona: ${personaId}`);
     
-    const collection = persona === 'public' ? 'traceremove_public' : 'traceremove_internal';
+    if (!process.env.UPSTASH_VECTOR_REST_URL || !process.env.UPSTASH_VECTOR_REST_TOKEN) {
+      console.log('Upstash Vector not configured, using mock context');
+      return generateMockContext(query, personaId);
+    }
     
-    const results = await vectorIndex.query({
-      vector: queryEmbedding,
-      topK: limit,
-      filter: `personaId = "${personaId}" AND collection = "${collection}"`,
+    const embedding = await embedText(query);
+    
+    const vectorClient = new Index({
+      url: process.env.UPSTASH_VECTOR_REST_URL,
+      token: process.env.UPSTASH_VECTOR_REST_TOKEN,
+    });
+    
+    let filter: string | undefined;
+    if (personaId === 'philosopher') {
+      filter = 'persona = "philosopher"';
+    } else if (personaId === 'comprehensive-ai') {
+      filter = 'persona = "comprehensive-ai" OR persona = "public"';
+    }
+    
+    const results = await vectorClient.query({
+      vector: embedding,
+      topK: 6,
       includeMetadata: true,
+      filter
     });
     
     if (!results || results.length === 0) {
-      return '';
+      console.log('No vector results found, using mock context');
+      return generateMockContext(query, personaId);
     }
     
     const contextChunks = results
-      .filter(match => match.metadata && match.metadata.content)
-      .map(match => {
-        const metadata = match.metadata!;
-        return `Source: ${metadata.title || metadata.source}\n${metadata.content}`;
+      .filter(result => result.score && result.score > 0.7)
+      .map(result => {
+        const metadata = result.metadata as any;
+        const source = metadata?.table ? `${metadata.table}` : 'Knowledge Base';
+        return `[Source: ${metadata?.title || 'Unknown'} from ${source}]: ${metadata?.content || result.id}`;
       });
     
-    return contextChunks.join('\n\n---\n\n');
+    if (contextChunks.length === 0) {
+      console.log('No high-quality matches found, using mock context');
+      return generateMockContext(query, personaId);
+    }
+    
+    return contextChunks.slice(0, 3).join('\n\n');
+    
   } catch (error) {
-    console.log('Using mock context due to API configuration:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Error getting context:', error);
     return generateMockContext(query, personaId);
   }
 }

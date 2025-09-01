@@ -94,24 +94,24 @@ export function pickModel(options: {
 }): ModelConfig {
   const { intent, length, persona } = options;
   
-  if (intent === 'qa' && length < 400) {
-    return { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.7 };
+  if (intent === 'code' && length < 2000) {
+    return { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.1 };
   }
   
-  if (intent === 'long' || length > 2000) {
+  if (intent === 'long' || length > 4000) {
     return { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', temperature: 0.7 };
   }
   
-  if (intent === 'code') {
-    return { provider: 'groq', model: 'llama-3.1-70b-versatile', temperature: 0.3 };
+  if (intent === 'analysis' && (persona === 'philosopher' || persona === 'comprehensive-ai')) {
+    return { provider: 'openai', model: 'gpt-4o', temperature: 0.6 };
   }
   
-  if (intent === 'analysis') {
-    return { provider: 'google', model: 'gemini-1.5-flash', temperature: 0.5 };
+  if (persona === 'comprehensive-ai' && intent === 'qa') {
+    return { provider: 'openai', model: 'gpt-4o', temperature: 0.7 };
   }
   
-  if (persona === 'philosopher') {
-    return { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', temperature: 0.8 };
+  if (intent === 'qa' && length < 1000) {
+    return { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.7 };
   }
   
   return { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.7 };
