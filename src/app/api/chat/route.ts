@@ -2,23 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPersonaByHost, detectLanguage } from '@/lib/bot.config';
 import { getContext } from '@/lib/rag';
 import { ContentGenerator } from '@/lib/generator';
+import { getOpenAIClient } from '@/lib/models';
 import OpenAI from 'openai';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI {
-  if (!openaiClient) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '') {
-      throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
-    }
-    openaiClient = new OpenAI({ apiKey });
-  }
-  return openaiClient;
-}
 
 function hasValidOpenAIKey(): boolean {
   const apiKey = process.env.OPENAI_API_KEY;
