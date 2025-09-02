@@ -33,7 +33,9 @@ export async function query(text: string, params?: any[]): Promise<any> {
     const duration = Date.now() - startTime;
     
     if (duration > 1000) {
-      console.warn(`Slow query detected (${duration}ms):`, text.substring(0, 100));
+      console.warn(`🐌 Slow query detected (${duration}ms):`, text.substring(0, 100));
+    } else if (duration > 500) {
+      console.info(`⚠️  Moderate query time (${duration}ms):`, text.substring(0, 50));
     }
     
     try {
@@ -44,15 +46,26 @@ export async function query(text: string, params?: any[]): Promise<any> {
         rows: result.rows?.length || 0,
         timestamp: new Date().toISOString(),
       });
+      
+      const { updateMetric } = await import('./monitoring');
+      updateMetric('databaseConnections', pool.totalCount);
     } catch (perfError) {
       console.debug('Performance monitoring error:', perfError);
     }
     
     return result;
   } catch (error) {
-    console.error('Database query error:', error);
-    console.error('Query:', text);
-    console.error('Params:', params);
+    console.error('❌ Database query error:', error);
+    console.error('📝 Query:', text.substring(0, 200));
+    console.error('📊 Params:', params);
+    
+    try {
+      const { updateHealthCheck } = await import('./monitoring');
+      updateHealthCheck('PostgreSQL', 'unhealthy', undefined, error instanceof Error ? error.message : 'Query failed');
+    } catch (monitoringError) {
+      console.debug('Monitoring update failed:', monitoringError);
+    }
+    
     throw error;
   } finally {
     client.release();
