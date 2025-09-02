@@ -79,7 +79,7 @@ async function buildSQLFilter(q: string, persona: 'public' | 'internal'): Promis
 
 async function searchDocuments(filter: any, limit: number): Promise<any[]> {
   try {
-    const { withAdvancedCache, getCachedSearchResults, cacheSearchResults } = await import('@/lib/cache-advanced');
+    const { getCachedSearchResults, cacheSearchResults } = await import('../../../lib/cache-advanced');
     const searchKey = `${JSON.stringify(filter)}_${limit}`;
     
     const cached = await getCachedSearchResults(searchKey, filter.visibility);
@@ -115,70 +115,150 @@ async function executeSearchQuery(filter: any, limit: number): Promise<any[]> {
       
       let keywordCondition = '';
       let keywordParams: string[] = [];
+      let tsQueryCondition = '';
       
       if (filter.keywords && filter.keywords.length > 0) {
+        const searchTerms = filter.keywords.join(' & '); // Use AND operator for better precision
+        tsQueryCondition = `AND to_tsvector('english', coalesce(title, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(content, '')) @@ to_tsquery('english', $${keywordParams.length + 1})`;
+        
         const conditions = filter.keywords.map((k: string, index: number) => {
           keywordParams.push(`%${k}%`, `%${k}%`, `%${k}%`);
           const paramIndex = index * 3;
-          return `(title ILIKE $${paramIndex + 1} OR summary ILIKE $${paramIndex + 2} OR content ILIKE $${paramIndex + 3})`;
+          return `(title ILIKE $${paramIndex + 2} OR summary ILIKE $${paramIndex + 3} OR content ILIKE $${paramIndex + 4})`;
         });
-        keywordCondition = `AND (${conditions.join(' OR ')})`;
+        keywordCondition = `OR (${conditions.join(' OR ')})`;
+        keywordParams.unshift(searchTerms); // Add search terms as first parameter
       }
       
       const searchQuery = `
-        SELECT 'catalog' as table_name, notion_id, title, summary, topic, tags, status, lang, url, updated_at,
-               ts_rank(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(content, '')), plainto_tsquery('english', $${keywordParams.length + 1})) as rank
-        FROM catalog 
-        WHERE ${visibilityCondition} ${statusCondition} ${langCondition} ${keywordCondition}
-        
-        UNION ALL
-        
-        SELECT 'cases' as table_name, notion_id, name as title, terms as summary, status as topic, keys as tags, status, 'en' as lang, url, updated_at,
-               ts_rank(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(terms, '')), plainto_tsquery('english', $${keywordParams.length + 1})) as rank
-        FROM cases 
-        WHERE ${visibilityCondition} ${keywordCondition.replace(/content/g, 'terms')}
-        
-        UNION ALL
-        
-        SELECT 'publishing' as table_name, notion_id, title, notes as summary, type as topic, tags, submission_status as status, lang, url, updated_at,
-               ts_rank(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(notes, '')), plainto_tsquery('english', $${keywordParams.length + 1})) as rank
-        FROM publishing 
-        WHERE ${visibilityCondition} ${langCondition} ${keywordCondition.replace(/content/g, 'notes')}
-        
-        ${filter.visibility === 'internal' ? `
-        UNION ALL
-        
-        SELECT 'finance' as table_name, notion_id, name as title, notes as summary, 'finance' as topic, ARRAY[]::text[] as tags, 'active' as status, 'en' as lang, null as url, updated_at,
-               ts_rank(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(notes, '')), plainto_tsquery('english', $${keywordParams.length + 1})) as rank
-        FROM finance 
-        WHERE ${keywordCondition.replace(/content/g, 'notes')}
-        ` : ''}
-        
+        WITH ranked_results AS (
+          SELECT 'catalog' as table_name, notion_id, title, summary, topic, tags, status, lang, url, updated_at,
+                 CASE 
+                   WHEN $1 != '' THEN 
+                     ts_rank_cd(
+                       setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+                       setweight(to_tsvector('english', coalesce(summary, '')), 'B') ||
+                       setweight(to_tsvector('english', coalesce(content, '')), 'C'),
+                       to_tsquery('english', $1),
+                       32
+                     ) * 
+                     CASE 
+                       WHEN title ILIKE $2 THEN 2.0
+                       WHEN summary ILIKE $2 THEN 1.5
+                       ELSE 1.0
+                     END
+                   ELSE 1.0
+                 END as rank
+          FROM catalog 
+          WHERE ${visibilityCondition} ${statusCondition} ${langCondition} 
+            ${filter.keywords && filter.keywords.length > 0 ? `AND (${tsQueryCondition.replace('AND ', '')} ${keywordCondition})` : ''}
+          
+          UNION ALL
+          
+          SELECT 'cases' as table_name, notion_id, name as title, terms as summary, status as topic, keys as tags, status, 'en' as lang, url, updated_at,
+                 CASE 
+                   WHEN $1 != '' THEN 
+                     ts_rank_cd(
+                       setweight(to_tsvector('english', coalesce(name, '')), 'A') ||
+                       setweight(to_tsvector('english', coalesce(terms, '')), 'B'),
+                       to_tsquery('english', $1),
+                       32
+                     ) * 
+                     CASE 
+                       WHEN name ILIKE $2 THEN 2.0
+                       WHEN terms ILIKE $2 THEN 1.5
+                       ELSE 1.0
+                     END
+                   ELSE 1.0
+                 END as rank
+          FROM cases 
+          WHERE ${visibilityCondition} 
+            ${filter.keywords && filter.keywords.length > 0 ? `AND (to_tsvector('english', coalesce(name, '') || ' ' || coalesce(terms, '')) @@ to_tsquery('english', $1) ${keywordCondition.replace(/content/g, 'terms')})` : ''}
+          
+          UNION ALL
+          
+          SELECT 'publishing' as table_name, notion_id, title, notes as summary, type as topic, tags, submission_status as status, lang, url, updated_at,
+                 CASE 
+                   WHEN $1 != '' THEN 
+                     ts_rank_cd(
+                       setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+                       setweight(to_tsvector('english', coalesce(notes, '')), 'B'),
+                       to_tsquery('english', $1),
+                       32
+                     ) * 
+                     CASE 
+                       WHEN title ILIKE $2 THEN 2.0
+                       WHEN notes ILIKE $2 THEN 1.5
+                       ELSE 1.0
+                     END
+                   ELSE 1.0
+                 END as rank
+          FROM publishing 
+          WHERE ${visibilityCondition} ${langCondition} 
+            ${filter.keywords && filter.keywords.length > 0 ? `AND (to_tsvector('english', coalesce(title, '') || ' ' || coalesce(notes, '')) @@ to_tsquery('english', $1) ${keywordCondition.replace(/content/g, 'notes')})` : ''}
+          
+          ${filter.visibility === 'internal' ? `
+          UNION ALL
+          
+          SELECT 'finance' as table_name, notion_id, name as title, notes as summary, 'finance' as topic, ARRAY[]::text[] as tags, 'active' as status, 'en' as lang, null as url, updated_at,
+                 CASE 
+                   WHEN $1 != '' THEN 
+                     ts_rank_cd(
+                       setweight(to_tsvector('english', coalesce(name, '')), 'A') ||
+                       setweight(to_tsvector('english', coalesce(notes, '')), 'B'),
+                       to_tsquery('english', $1),
+                       32
+                     ) * 
+                     CASE 
+                       WHEN name ILIKE $2 THEN 2.0
+                       WHEN notes ILIKE $2 THEN 1.5
+                       ELSE 1.0
+                     END
+                   ELSE 1.0
+                 END as rank
+          FROM finance 
+          WHERE ${filter.keywords && filter.keywords.length > 0 ? `(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(notes, '')) @@ to_tsquery('english', $1) ${keywordCondition.replace(/content/g, 'notes')})` : 'TRUE'}
+          ` : ''}
+        )
+        SELECT * FROM ranked_results 
+        WHERE rank > 0.1  -- Filter out very low relevance results
         ORDER BY rank DESC, updated_at DESC
         LIMIT $${keywordParams.length + 2}
       `;
       
-      const searchTerm = filter.keywords ? filter.keywords.join(' ') : '';
-      const params = [...keywordParams, searchTerm, limit];
+      const searchTerm = filter.keywords ? filter.keywords.join(' & ') : '';
+      const titleBoost = filter.keywords ? `%${filter.keywords[0]}%` : '';
+      const params = [searchTerm, titleBoost, ...keywordParams.slice(1), limit];
       
-      console.log(`🔍 Executing search query with ${params.length} parameters`);
+      console.log(`🔍 Executing enhanced search query with ${params.length} parameters`);
+      console.log(`🎯 Search terms: "${searchTerm}", Title boost: "${titleBoost}"`);
+      
       const startTime = Date.now();
       const result = await query(searchQuery, params);
       const duration = Date.now() - startTime;
       
-      console.log(`📊 Search completed: ${result.rows?.length || 0} results in ${duration}ms`);
+      console.log(`📊 Enhanced search completed: ${result.rows?.length || 0} results in ${duration}ms`);
       
       try {
-        const { getCachedQueryResult, cacheQueryResult } = await import('@/lib/cache-advanced');
-        await cacheQueryResult(searchQuery, params, result.rows || [], 600000); // Cache for 10 minutes
+        const { cacheQueryResult } = await import('../../../lib/cache-advanced');
+        const cacheKey = `search_${Buffer.from(JSON.stringify({ filter, limit })).toString('base64')}`;
+        await cacheQueryResult(cacheKey, params, result.rows || [], 600000); // Cache for 10 minutes
       } catch (cacheError) {
         console.debug('Query caching failed:', cacheError);
+      }
+      
+      try {
+        const { measureQuery } = await import('@/lib/performance');
+        await measureQuery(async () => result.rows || [], `search_query_${filter.visibility}`);
+      } catch (perfError) {
+        console.debug('Performance tracking failed:', perfError);
       }
       
       return result.rows || [];
       
   } catch (error) {
-    console.error('❌ SQL search execution error:', error);
+    console.error('❌ Enhanced SQL search execution error:', error);
+    console.error('Filter details:', JSON.stringify(filter, null, 2));
     throw error;
   }
 }
