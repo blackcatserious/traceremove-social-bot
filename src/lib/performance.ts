@@ -76,6 +76,19 @@ class PerformanceMonitor {
 
 export const performanceMonitor = new PerformanceMonitor();
 
+export function getPerformanceStats(): {
+  totalQueries: number;
+  averageQueryTime: number;
+  slowQueries: number;
+} {
+  const stats = performanceMonitor.getMetricsSummary();
+  return {
+    totalQueries: stats.totalQueries,
+    averageQueryTime: stats.avgResponseTime,
+    slowQueries: stats.slowQueries,
+  };
+}
+
 export function measurePerformance<T>(
   fn: () => Promise<T>,
   context: string

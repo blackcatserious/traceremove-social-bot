@@ -261,40 +261,110 @@ export async function syncDatabase(databaseConfig: NotionDatabaseConfig): Promis
   extracted: number;
   loaded: number;
   errors: number;
+  progress: Array<{ step: string; status: 'completed' | 'failed'; timestamp: string; details?: string }>;
 }> {
-  console.log(`Starting sync for ${databaseConfig.name} database...`);
+  const progress: Array<{ step: string; status: 'completed' | 'failed'; timestamp: string; details?: string }> = [];
+  const startTime = Date.now();
+  
+  console.log(`🚀 Starting sync for ${databaseConfig.name} database...`);
+  progress.push({
+    step: `Starting ${databaseConfig.name} sync`,
+    status: 'completed',
+    timestamp: new Date().toISOString(),
+  });
   
   try {
     const pages = await extractFromNotion(databaseConfig);
-    console.log(`Extracted ${pages.length} pages from ${databaseConfig.name}`);
+    console.log(`📥 Extracted ${pages.length} pages from ${databaseConfig.name}`);
+    progress.push({
+      step: `Extracted ${pages.length} pages from Notion`,
+      status: 'completed',
+      timestamp: new Date().toISOString(),
+      details: `${pages.length} pages retrieved in ${Date.now() - startTime}ms`,
+    });
     
     const transformedRecords = pages.map(page => 
       transformNotionPage(page, databaseConfig.mapping)
     );
     
+    console.log(`🔄 Transforming ${transformedRecords.length} records for ${databaseConfig.name}...`);
+    progress.push({
+      step: `Transformed ${transformedRecords.length} records`,
+      status: 'completed',
+      timestamp: new Date().toISOString(),
+    });
+    
     await loadToPostgreSQL(transformedRecords, databaseConfig.table, databaseConfig.visibility);
+    console.log(`💾 Loaded ${transformedRecords.length} records to PostgreSQL`);
+    progress.push({
+      step: `Loaded to PostgreSQL`,
+      status: 'completed',
+      timestamp: new Date().toISOString(),
+      details: `${transformedRecords.length} records upserted`,
+    });
     
     let loadedCount = 0;
-    for (const record of transformedRecords) {
+    let s3Errors = 0;
+    let vectorErrors = 0;
+    
+    for (const [index, record] of transformedRecords.entries()) {
       try {
         await loadToS3(record, databaseConfig.table);
         await loadToVectorDB(record, databaseConfig.table, databaseConfig.visibility);
         loadedCount++;
+        
+        if ((index + 1) % 50 === 0) {
+          console.log(`📊 Progress: ${index + 1}/${transformedRecords.length} records processed`);
+        }
       } catch (error) {
-        console.error(`Failed to process record ${record.notion_id}:`, error);
+        console.error(`❌ Failed to process record ${record.notion_id}:`, error);
+        if (error instanceof Error && error.message.includes('S3')) {
+          s3Errors++;
+        } else if (error instanceof Error && error.message.includes('Vector')) {
+          vectorErrors++;
+        }
       }
     }
     
-    console.log(`Completed sync for ${databaseConfig.name}: ${loadedCount}/${pages.length} records processed`);
+    const duration = Date.now() - startTime;
+    console.log(`✅ Completed sync for ${databaseConfig.name}: ${loadedCount}/${pages.length} records processed in ${duration}ms`);
+    
+    progress.push({
+      step: `Completed vector indexing`,
+      status: loadedCount === pages.length ? 'completed' : 'failed',
+      timestamp: new Date().toISOString(),
+      details: `${loadedCount}/${pages.length} records indexed successfully. S3 errors: ${s3Errors}, Vector errors: ${vectorErrors}`,
+    });
+    
+    try {
+      const { updateMetric } = await import('../monitoring');
+      updateMetric('notionSyncStatus', {
+        ...((await import('../monitoring')).getSystemMetrics().notionSyncStatus || {}),
+        [databaseConfig.name]: {
+          lastSync: new Date().toISOString(),
+          recordCount: loadedCount,
+          errors: pages.length - loadedCount,
+        }
+      });
+    } catch (monitoringError) {
+      console.debug('Monitoring update failed:', monitoringError);
+    }
     
     return {
       extracted: pages.length,
       loaded: loadedCount,
       errors: pages.length - loadedCount,
+      progress,
     };
     
   } catch (error) {
-    console.error(`Failed to sync ${databaseConfig.name}:`, error);
+    console.error(`💥 Failed to sync ${databaseConfig.name}:`, error);
+    progress.push({
+      step: `Sync failed`,
+      status: 'failed',
+      timestamp: new Date().toISOString(),
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
     throw error;
   }
 }
@@ -302,9 +372,14 @@ export async function syncDatabase(databaseConfig: NotionDatabaseConfig): Promis
 export async function incrementalSync(since?: Date): Promise<Record<string, any>> {
   const results: Record<string, any> = {};
   const sinceDate = since || new Date(Date.now() - 15 * 60 * 1000);
+  const startTime = Date.now();
+  
+  console.log(`🔄 Starting incremental sync since ${sinceDate.toISOString()}...`);
   
   for (const dbConfig of NOTION_DATABASES) {
+    const dbStartTime = Date.now();
     try {
+      console.log(`📊 Checking ${dbConfig.name} for updates...`);
       const notion = getNotionClient();
       const response = await notion.databases.query({
         database_id: dbConfig.id,
@@ -314,33 +389,77 @@ export async function incrementalSync(since?: Date): Promise<Record<string, any>
             after: sinceDate.toISOString(),
           },
         },
+        page_size: 100,
       });
       
       if (response.results.length > 0) {
+        console.log(`📥 Found ${response.results.length} updated records in ${dbConfig.name}`);
+        
         const transformedRecords = response.results.map(page => 
           transformNotionPage(page, dbConfig.mapping)
         );
         
         await loadToPostgreSQL(transformedRecords, dbConfig.table, dbConfig.visibility);
         
+        let processedCount = 0;
+        let errorCount = 0;
+        
         for (const record of transformedRecords) {
-          await loadToS3(record, dbConfig.table);
-          await loadToVectorDB(record, dbConfig.table, dbConfig.visibility);
+          try {
+            await loadToS3(record, dbConfig.table);
+            await loadToVectorDB(record, dbConfig.table, dbConfig.visibility);
+            processedCount++;
+          } catch (error) {
+            console.error(`❌ Failed to process record ${record.notion_id}:`, error);
+            errorCount++;
+          }
         }
+        
+        const dbDuration = Date.now() - dbStartTime;
+        console.log(`✅ ${dbConfig.name}: ${processedCount}/${response.results.length} records processed in ${dbDuration}ms`);
         
         results[dbConfig.name] = {
           updated: response.results.length,
+          processed: processedCount,
+          errors: errorCount,
           since: sinceDate.toISOString(),
+          duration: dbDuration,
         };
       } else {
-        results[dbConfig.name] = { updated: 0, since: sinceDate.toISOString() };
+        console.log(`📭 No updates found in ${dbConfig.name}`);
+        results[dbConfig.name] = { 
+          updated: 0, 
+          processed: 0,
+          errors: 0,
+          since: sinceDate.toISOString(),
+          duration: Date.now() - dbStartTime,
+        };
       }
       
     } catch (error) {
-      console.error(`Incremental sync failed for ${dbConfig.name}:`, error);
-      results[dbConfig.name] = { error: error instanceof Error ? error.message : 'Unknown error' };
+      const dbDuration = Date.now() - dbStartTime;
+      console.error(`💥 Incremental sync failed for ${dbConfig.name}:`, error);
+      results[dbConfig.name] = { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        duration: dbDuration,
+      };
     }
   }
+  
+  const totalDuration = Date.now() - startTime;
+  const totalUpdated = Object.values(results).reduce((sum, result: any) => sum + (result.updated || 0), 0);
+  const totalProcessed = Object.values(results).reduce((sum, result: any) => sum + (result.processed || 0), 0);
+  const totalErrors = Object.values(results).reduce((sum, result: any) => sum + (result.errors || 0), 0);
+  
+  console.log(`🎯 Incremental sync completed: ${totalProcessed}/${totalUpdated} records processed with ${totalErrors} errors in ${totalDuration}ms`);
+  
+  results._summary = {
+    totalUpdated,
+    totalProcessed,
+    totalErrors,
+    duration: totalDuration,
+    timestamp: new Date().toISOString(),
+  };
   
   return results;
 }
