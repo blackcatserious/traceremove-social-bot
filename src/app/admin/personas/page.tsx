@@ -215,45 +215,6 @@ export default function PersonasPage() {
                     ))}
                   </div>
                 </div>
-
-                <div className="card-professional">
-                  <h3 className="text-lg font-bold text-primary mb-4">Comprehensive Capabilities</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedPersonaData.capabilities.map((capability) => {
-                      const IconComponent = getCapabilityIcon(capability);
-                      return (
-                        <div key={capability} className="flex items-center bg-gray-700/50 rounded-lg p-3">
-                          <IconComponent className="w-4 h-4 text-blue-400 mr-2" />
-                          <span className="text-secondary text-sm">{capability.replace('_', ' ')}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="card-professional">
-                  <h3 className="text-lg font-bold text-primary mb-4">Integrations</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedPersonaData.integrations.map((integration) => (
-                      <div key={integration} className="flex items-center bg-gray-700/50 rounded-lg p-3">
-                        <Globe className="w-4 h-4 text-green-400 mr-2" />
-                        <span className="text-secondary text-sm">{integration.replace('_', ' ')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="card-professional">
-                  <h3 className="text-lg font-bold text-primary mb-4">Specializations</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {selectedPersonaData.specializations.map((specialization) => (
-                      <div key={specialization} className="flex items-center bg-gray-700/50 rounded-lg p-3">
-                        <Settings className="w-4 h-4 text-purple-400 mr-2" />
-                        <span className="text-secondary text-sm">{specialization.replace('_', ' ')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
           </div>
