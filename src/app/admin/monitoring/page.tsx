@@ -33,9 +33,26 @@ export default function MonitoringPage() {
   const fetchSystemHealth = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/system/health?detailed=true');
-      const data = await response.json();
-      setSystemHealth(data);
+      const response = await fetch('/api/system/realtime');
+      const realtimeData = await response.json();
+      
+      const transformedData: SystemHealth = {
+        summary: `System Status: ${realtimeData.services?.filter((s: any) => s.status === 'healthy').length === realtimeData.services?.length ? 'Healthy' : 'Degraded'} | Uptime: ${Math.floor(realtimeData.system?.uptime / 3600)}h ${Math.floor((realtimeData.system?.uptime % 3600) / 60)}m | Memory: ${realtimeData.system?.memoryUsage?.toFixed(1)}MB`,
+        metrics: {
+          timestamp: realtimeData.timestamp,
+          apiResponseTimes: realtimeData.api || {},
+          databaseConnections: realtimeData.database?.connections || 0,
+          vectorIndexSize: realtimeData.database?.vectorIndexSize || 0,
+          notionSyncStatus: {},
+          modelUsage: realtimeData.ai || {},
+          memoryUsage: realtimeData.system?.memoryUsage || 0,
+          uptime: realtimeData.system?.uptime || 0,
+        },
+        health: realtimeData.services || [],
+        recommendations: realtimeData.alerts?.map((alert: any) => alert.message) || ['All systems operating normally.'],
+      };
+      
+      setSystemHealth(transformedData);
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Failed to fetch system health:', error);
@@ -46,7 +63,7 @@ export default function MonitoringPage() {
 
   useEffect(() => {
     fetchSystemHealth();
-    const interval = setInterval(fetchSystemHealth, 30000);
+    const interval = setInterval(fetchSystemHealth, 10000); // Refresh every 10 seconds for real-time monitoring
     return () => clearInterval(interval);
   }, []);
 
