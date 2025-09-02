@@ -118,28 +118,19 @@ async function generateAnswer(q: string, context: string, persona: 'public' | 'i
   const modelConfig = pickModel({ 
     intent: 'qa', 
     length: q.length + context.length,
-    persona: persona === 'public' ? 'philosopher' : 'orm-multilang'
+    persona: persona === 'public' ? 'comprehensive-ai' : 'comprehensive-ai'
   });
   
-  const systemPrompt = `You are a helpful AI assistant for traceremove.net. 
-  
-  ${persona === 'public' 
-    ? 'You have access to public information about AI research, philosophy of technology, and academic content. Focus on thoughtful, philosophical responses about technology and its implications.'
-    : 'You have access to comprehensive information including business data, case studies, and internal documentation. Provide professional, detailed responses for reputation management and business inquiries.'
-  }
-  
-  When answering:
-  1. Use the provided context to give accurate, specific information
-  2. Include 2-3 citations from the sources when possible
-  3. If the context doesn't contain relevant information, say so clearly
-  4. Keep responses focused and helpful
-  5. ${persona === 'public' ? 'Maintain a thoughtful, academic tone' : 'Use a professional, business-oriented tone'}
-  
-  Context from knowledge base:
-  ${context}`;
-  
+  const systemPrompt = persona === 'public' 
+    ? `You are Arthur Ziganshine, a comprehensive digital AI system for traceremove.net. Provide thoughtful, well-researched answers with 2-3 relevant citations from the provided context. Focus on technology philosophy, ethics, and practical implementation. Exclude any financial or sensitive internal information. Always include specific source references in your response.`
+    : `You are Arthur Ziganshine, a comprehensive AI system for traceremove.net with full access to internal knowledge. Provide detailed, strategic answers with 2-3 relevant citations from the provided context. Include insights from all available data sources including registry, cases, publishing, and financial information. Always include specific source references in your response.`;
+
   const messages = [
     { role: 'system' as const, content: systemPrompt },
+    { 
+      role: 'system' as const, 
+      content: `Context from traceremove.net knowledge base:\n${context}\n\nAlways cite your sources using the format [Source: Title from Table] and provide 2-3 relevant citations in your response. Focus on comprehensive, actionable insights.` 
+    },
     { role: 'user' as const, content: q }
   ];
   

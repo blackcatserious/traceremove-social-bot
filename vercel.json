@@ -1,1 +1,10 @@
-{}
+{
+  "functions": {
+    "src/app/api/etl/**": {
+      "maxDuration": 300
+    },
+    "src/app/api/admin/**": {
+      "maxDuration": 300
+    }
+  }
+}

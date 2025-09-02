@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPersonaByHost, detectLanguage } from '@/lib/bot.config';
 import { getContext } from '@/lib/rag';
 import { ContentGenerator } from '@/lib/generator';
-import { getOpenAIClient } from '@/lib/models';
-import OpenAI from 'openai';
+import { generateResponse, pickModel } from '@/lib/models';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
@@ -205,14 +204,14 @@ export async function POST(request: NextRequest) {
       messages.push({ role: 'user', content: message });
       
       try {
-        const openai = getOpenAIClient();
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages,
-          temperature: 0.7,
-          max_tokens: 1000,
+        const modelConfig = pickModel({ 
+          intent: 'qa', 
+          length: message.length + systemPrompt.length,
+          persona: persona.id
         });
-        reply = completion.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+        
+        const response = await generateResponse(messages, modelConfig);
+        reply = response.content || 'I apologize, but I could not generate a response.';
       } catch (error) {
         console.log('Using mock response due to API error:', error instanceof Error ? error.message : 'Unknown error');
         reply = await generateMockResponse(message, persona, detectedLang);

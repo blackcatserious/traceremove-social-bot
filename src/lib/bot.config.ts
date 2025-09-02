@@ -291,6 +291,10 @@ export function getPersonaByHost(host: string): BotPersona {
     return persona;
   }
   
+  if (domain.includes('traceremove.net') || domain.includes('localhost') || domain.includes('vercel.app')) {
+    return PERSONAS['traceremove.net'];
+  }
+  
   return PERSONAS['traceremove.com'];
 }
 
