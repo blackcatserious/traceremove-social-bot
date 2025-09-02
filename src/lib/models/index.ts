@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Mistral from '@mistralai/mistralai';
 import Groq from 'groq-sdk';
+import { getEnvironmentConfig, shouldMockExternalApis } from '../env-validation';
+import { ExternalServiceError, withRetry } from '../error-handling';
 
 export type ModelProvider = 'openai' | 'anthropic' | 'google' | 'mistral' | 'groq';
 
@@ -34,55 +36,85 @@ let clients: {
 
 export function getOpenAIClient(): OpenAI {
   if (!clients.openai) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
-      throw new Error('OpenAI API key not configured properly. Please set OPENAI_API_KEY environment variable.');
+    if (shouldMockExternalApis()) {
+      console.log('Using mock OpenAI client for development');
+      clients.openai = {} as OpenAI;
+      return clients.openai;
     }
-    clients.openai = new OpenAI({ apiKey });
+
+    const config = getEnvironmentConfig();
+    if (!config?.openai.apiKey) {
+      throw new ExternalServiceError('OpenAI', 'API key not configured properly. Please set OPENAI_API_KEY environment variable.');
+    }
+    clients.openai = new OpenAI({ apiKey: config.openai.apiKey });
   }
   return clients.openai;
 }
 
 export function getAnthropicClient(): Anthropic {
   if (!clients.anthropic) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
-      throw new Error('Anthropic API key not configured properly. Please set ANTHROPIC_API_KEY environment variable.');
+    if (shouldMockExternalApis()) {
+      console.log('Using mock Anthropic client for development');
+      clients.anthropic = {} as Anthropic;
+      return clients.anthropic;
     }
-    clients.anthropic = new Anthropic({ apiKey });
+
+    const config = getEnvironmentConfig();
+    if (!config?.multiModel.anthropic) {
+      throw new ExternalServiceError('Anthropic', 'API key not configured properly. Please set ANTHROPIC_API_KEY environment variable.');
+    }
+    clients.anthropic = new Anthropic({ apiKey: config.multiModel.anthropic });
   }
   return clients.anthropic;
 }
 
 export function getGoogleClient(): GoogleGenerativeAI {
   if (!clients.google) {
-    const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
-      throw new Error('Google API key not configured properly. Please set GOOGLE_API_KEY environment variable.');
+    if (shouldMockExternalApis()) {
+      console.log('Using mock Google client for development');
+      clients.google = {} as GoogleGenerativeAI;
+      return clients.google;
     }
-    clients.google = new GoogleGenerativeAI(apiKey);
+
+    const config = getEnvironmentConfig();
+    if (!config?.multiModel.google) {
+      throw new ExternalServiceError('Google', 'API key not configured properly. Please set GOOGLE_API_KEY environment variable.');
+    }
+    clients.google = new GoogleGenerativeAI(config.multiModel.google);
   }
   return clients.google;
 }
 
 export function getMistralClient(): Mistral {
   if (!clients.mistral) {
-    const apiKey = process.env.MISTRAL_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
-      throw new Error('Mistral API key not configured properly. Please set MISTRAL_API_KEY environment variable.');
+    if (shouldMockExternalApis()) {
+      console.log('Using mock Mistral client for development');
+      clients.mistral = {} as Mistral;
+      return clients.mistral;
     }
-    clients.mistral = new Mistral(apiKey);
+
+    const config = getEnvironmentConfig();
+    if (!config?.multiModel.mistral) {
+      throw new ExternalServiceError('Mistral', 'API key not configured properly. Please set MISTRAL_API_KEY environment variable.');
+    }
+    clients.mistral = new Mistral(config.multiModel.mistral);
   }
   return clients.mistral;
 }
 
 export function getGroqClient(): Groq {
   if (!clients.groq) {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
-      throw new Error('Groq API key not configured properly. Please set GROQ_API_KEY environment variable.');
+    if (shouldMockExternalApis()) {
+      console.log('Using mock Groq client for development');
+      clients.groq = {} as Groq;
+      return clients.groq;
     }
-    clients.groq = new Groq({ apiKey });
+
+    const config = getEnvironmentConfig();
+    if (!config?.multiModel.groq) {
+      throw new ExternalServiceError('Groq', 'API key not configured properly. Please set GROQ_API_KEY environment variable.');
+    }
+    clients.groq = new Groq({ apiKey: config.multiModel.groq });
   }
   return clients.groq;
 }
@@ -123,124 +155,138 @@ export async function generateResponse(
 ): Promise<ModelResponse> {
   const { provider, model, temperature = 0.7, maxTokens = 1000 } = config;
   
+  if (shouldMockExternalApis()) {
+    console.log(`Mock response for ${provider} ${model}`);
+    return {
+      content: `Mock response from ${provider} ${model} for: ${messages[messages.length - 1]?.content?.substring(0, 50)}...`,
+      provider,
+      model,
+      usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 }
+    };
+  }
+  
   try {
-    switch (provider) {
-      case 'openai': {
-        const client = getOpenAIClient();
-        const response = await client.chat.completions.create({
-          model,
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-        });
+    const result = await withRetry(async () => {
+      switch (provider) {
+        case 'openai': {
+          const client = getOpenAIClient();
+          const response = await client.chat.completions.create({
+            model,
+            messages,
+            temperature,
+            max_tokens: maxTokens,
+          });
+          
+          return {
+            content: response.choices[0]?.message?.content || '',
+            provider,
+            model,
+            usage: response.usage ? {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens,
+            } : undefined,
+          };
+        }
         
-        return {
-          content: response.choices[0]?.message?.content || '',
-          provider,
-          model,
-          usage: response.usage ? {
-            promptTokens: response.usage.prompt_tokens,
-            completionTokens: response.usage.completion_tokens,
-            totalTokens: response.usage.total_tokens,
-          } : undefined,
-        };
+        case 'anthropic': {
+          const client = getAnthropicClient();
+          const systemMessage = messages.find(m => m.role === 'system');
+          const userMessages = messages.filter(m => m.role !== 'system');
+          
+          const response = await client.messages.create({
+            model,
+            max_tokens: maxTokens,
+            temperature,
+            system: systemMessage?.content,
+            messages: userMessages.map(m => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+            })),
+          });
+          
+          const content = response.content[0];
+          return {
+            content: content.type === 'text' ? content.text : '',
+            provider,
+            model,
+            usage: response.usage ? {
+              promptTokens: response.usage.input_tokens,
+              completionTokens: response.usage.output_tokens,
+              totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+            } : undefined,
+          };
+        }
+        
+        case 'google': {
+          const client = getGoogleClient();
+          const genModel = client.getGenerativeModel({ model });
+          
+          const systemMessage = messages.find(m => m.role === 'system');
+          const userMessages = messages.filter(m => m.role !== 'system');
+          const prompt = [
+            systemMessage?.content,
+            ...userMessages.map(m => `${m.role}: ${m.content}`)
+          ].filter(Boolean).join('\n\n');
+          
+          const response = await genModel.generateContent(prompt);
+          const text = response.response.text();
+          
+          return {
+            content: text,
+            provider,
+            model,
+          };
+        }
+        
+        case 'mistral': {
+          const client = getMistralClient();
+          const response = await client.chat({
+            model,
+            messages,
+            temperature,
+            maxTokens,
+          });
+          
+          return {
+            content: response.choices?.[0]?.message?.content || '',
+            provider,
+            model,
+            usage: response.usage ? {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens,
+            } : undefined,
+          };
+        }
+        
+        case 'groq': {
+          const client = getGroqClient();
+          const response = await client.chat.completions.create({
+            model,
+            messages,
+            temperature,
+            max_tokens: maxTokens,
+          });
+          
+          return {
+            content: response.choices[0]?.message?.content || '',
+            provider,
+            model,
+            usage: response.usage ? {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens,
+            } : undefined,
+          };
+        }
+        
+        default:
+          throw new Error(`Unsupported provider: ${provider}`);
       }
-      
-      case 'anthropic': {
-        const client = getAnthropicClient();
-        const systemMessage = messages.find(m => m.role === 'system');
-        const userMessages = messages.filter(m => m.role !== 'system');
-        
-        const response = await client.messages.create({
-          model,
-          max_tokens: maxTokens,
-          temperature,
-          system: systemMessage?.content,
-          messages: userMessages.map(m => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          })),
-        });
-        
-        const content = response.content[0];
-        return {
-          content: content.type === 'text' ? content.text : '',
-          provider,
-          model,
-          usage: response.usage ? {
-            promptTokens: response.usage.input_tokens,
-            completionTokens: response.usage.output_tokens,
-            totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-          } : undefined,
-        };
-      }
-      
-      case 'google': {
-        const client = getGoogleClient();
-        const genModel = client.getGenerativeModel({ model });
-        
-        const systemMessage = messages.find(m => m.role === 'system');
-        const userMessages = messages.filter(m => m.role !== 'system');
-        const prompt = [
-          systemMessage?.content,
-          ...userMessages.map(m => `${m.role}: ${m.content}`)
-        ].filter(Boolean).join('\n\n');
-        
-        const response = await genModel.generateContent(prompt);
-        const text = response.response.text();
-        
-        return {
-          content: text,
-          provider,
-          model,
-        };
-      }
-      
-      case 'mistral': {
-        const client = getMistralClient();
-        const response = await client.chat({
-          model,
-          messages,
-          temperature,
-          maxTokens,
-        });
-        
-        return {
-          content: response.choices?.[0]?.message?.content || '',
-          provider,
-          model,
-          usage: response.usage ? {
-            promptTokens: response.usage.prompt_tokens,
-            completionTokens: response.usage.completion_tokens,
-            totalTokens: response.usage.total_tokens,
-          } : undefined,
-        };
-      }
-      
-      case 'groq': {
-        const client = getGroqClient();
-        const response = await client.chat.completions.create({
-          model,
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-        });
-        
-        return {
-          content: response.choices[0]?.message?.content || '',
-          provider,
-          model,
-          usage: response.usage ? {
-            promptTokens: response.usage.prompt_tokens,
-            completionTokens: response.usage.completion_tokens,
-            totalTokens: response.usage.total_tokens,
-          } : undefined,
-        };
-      }
-      
-      default:
-        throw new Error(`Unsupported provider: ${provider}`);
-    }
+    }, 2);
+    
+    return result;
   } catch (error) {
     console.error(`Error with ${provider} ${model}:`, error);
     

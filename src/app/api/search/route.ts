@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/database';
 import { getContext } from '@/lib/rag';
 import { generateResponse, pickModel } from '@/lib/models';
+import { handleAPIError, ValidationError, DatabaseError, withRetry } from '@/lib/error-handling';
+import { getEnvironmentConfig } from '@/lib/env-validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +18,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
     
     if (!q.trim()) {
-      return NextResponse.json({ error: 'Query parameter q is required' }, { status: 400 });
+      throw new ValidationError('Query parameter q is required');
+    }
+
+    if (q.length > 500) {
+      throw new ValidationError('Query too long (max 500 characters)');
     }
     
     const sqlFilter = await buildSQLFilter(q, persona);
@@ -51,14 +57,10 @@ export async function GET(request: NextRequest) {
     const { recordApiResponse } = await import('@/lib/monitoring');
     recordApiResponse('/api/search', responseTime);
     
-    return NextResponse.json(
-      { 
-        error: 'Search failed', 
-        details: error instanceof Error ? error.message : 'Unknown error',
-        responseTime,
-      },
-      { status: 500 }
-    );
+    const { response, status } = handleAPIError(error);
+    response.responseTime = responseTime;
+    
+    return NextResponse.json(response, { status });
   }
 }
 

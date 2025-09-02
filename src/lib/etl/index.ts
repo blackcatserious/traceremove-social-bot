@@ -2,6 +2,8 @@ import { Client as NotionClient } from '@notionhq/client';
 import { query, CatalogRecord, CaseRecord, PublishingRecord, FinanceRecord } from '../database';
 import { uploadFile, generateContentKey } from '../storage';
 import { embedText, getVectorIndex } from '../rag';
+import { getEnvironmentConfig, shouldMockExternalApis } from '../env-validation';
+import { withRetry, ExternalServiceError, DatabaseError } from '../error-handling';
 
 export interface NotionDatabaseConfig {
   id: string;
@@ -88,12 +90,18 @@ let notionClient: NotionClient | null = null;
 
 export function getNotionClient(): NotionClient {
   if (!notionClient) {
-    const token = process.env.NOTION_TOKEN;
-    if (!token || token.includes('your_') || token === '' || token.includes('place')) {
-      throw new Error('Notion token not configured properly. Please set NOTION_TOKEN environment variable with a valid integration token.');
+    if (shouldMockExternalApis()) {
+      console.log('Using mock Notion client for development');
+      notionClient = {} as NotionClient;
+      return notionClient;
+    }
+
+    const config = getEnvironmentConfig();
+    if (!config?.notion.token) {
+      throw new ExternalServiceError('Notion', 'Token not configured properly. Please set NOTION_TOKEN environment variable with a valid integration token.');
     }
     notionClient = new NotionClient({ 
-      auth: token,
+      auth: config.notion.token,
       timeoutMs: 30000,
     });
   }
@@ -110,11 +118,21 @@ export async function extractFromNotion(databaseConfig: NotionDatabaseConfig): P
   
   do {
     try {
-      const response = await notion.databases.query({
-        database_id: databaseConfig.id,
-        start_cursor: cursor,
-        page_size: 100,
-      });
+      const response = await withRetry(async () => {
+        if (shouldMockExternalApis()) {
+          return {
+            results: [],
+            next_cursor: null,
+            has_more: false,
+          };
+        }
+
+        return await notion.databases.query({
+          database_id: databaseConfig.id,
+          start_cursor: cursor,
+          page_size: 100,
+        });
+      }, 3);
       
       allPages.push(...response.results);
       cursor = response.next_cursor || undefined;
@@ -126,7 +144,7 @@ export async function extractFromNotion(databaseConfig: NotionDatabaseConfig): P
       
     } catch (error) {
       console.error(`Failed to extract from ${databaseConfig.name}:`, error);
-      throw new Error(`Notion extraction failed for ${databaseConfig.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new ExternalServiceError('Notion', `Extraction failed for ${databaseConfig.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   } while (cursor);
   
@@ -187,21 +205,34 @@ export async function loadToPostgreSQL(
 ): Promise<void> {
   if (records.length === 0) return;
   
-  for (const record of records) {
-    record.visibility = visibility;
+  const config = getEnvironmentConfig();
+  const batchSize = config?.etl.batchSize || 50;
+  
+  for (let i = 0; i < records.length; i += batchSize) {
+    const batch = records.slice(i, i + batchSize);
     
-    const fields = Object.keys(record);
-    const values = Object.values(record);
-    const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+    await withRetry(async () => {
+      for (const record of batch) {
+        record.visibility = visibility;
+        
+        const fields = Object.keys(record);
+        const values = Object.values(record);
+        const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+        
+        const upsertQuery = `
+          INSERT INTO ${table} (${fields.join(', ')})
+          VALUES (${placeholders})
+          ON CONFLICT (notion_id) DO UPDATE SET
+          ${fields.filter(f => f !== 'notion_id').map(f => `${f} = EXCLUDED.${f}`).join(', ')}
+        `;
+        
+        await query(upsertQuery, values);
+      }
+    }, config?.etl.maxRetries || 3);
     
-    const upsertQuery = `
-      INSERT INTO ${table} (${fields.join(', ')})
-      VALUES (${placeholders})
-      ON CONFLICT (notion_id) DO UPDATE SET
-      ${fields.filter(f => f !== 'notion_id').map(f => `${f} = EXCLUDED.${f}`).join(', ')}
-    `;
-    
-    await query(upsertQuery, values);
+    if (i + batchSize < records.length) {
+      console.log(`Loaded batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(records.length / batchSize)} to ${table}`);
+    }
   }
 }
 
