@@ -6,9 +6,12 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
-    const persona = request.nextUrl.searchParams.get('persona') || 'public';
+    const persona = (request.nextUrl.searchParams.get('persona') || 'public') as 'public' | 'internal';
+    const days = parseInt(request.nextUrl.searchParams.get('days') || '30');
     
     const visibilityCondition = persona === 'public' 
       ? "visibility = 'public'" 
@@ -31,17 +34,27 @@ export async function GET(request: NextRequest) {
         tags,
         notes,
         url,
-        updated_at
+        updated_at,
+        CASE 
+          WHEN due_date <= CURRENT_DATE + INTERVAL '7 days' THEN 'urgent'
+          WHEN due_date <= CURRENT_DATE + INTERVAL '14 days' THEN 'soon'
+          ELSE 'upcoming'
+        END as priority
       FROM publishing 
       WHERE ${visibilityCondition}
         AND due_date IS NOT NULL 
         AND due_date >= CURRENT_DATE
+        AND due_date <= CURRENT_DATE + INTERVAL '${days} days'
         AND submission_status NOT IN ('published', 'rejected', 'withdrawn')
       ORDER BY due_date ASC, updated_at DESC
       LIMIT $1
     `;
     
     const result = await query(upcomingQuery, [limit]);
+    const responseTime = Date.now() - startTime;
+    
+    const { recordApiResponse } = await import('@/lib/monitoring');
+    recordApiResponse('/api/publishing/upcoming', responseTime);
     
     const deadlines = result.rows.map((row: any) => ({
       id: row.notion_id,
@@ -60,23 +73,41 @@ export async function GET(request: NextRequest) {
       notes: row.notes,
       url: row.url,
       updatedAt: row.updated_at,
+      priority: row.priority,
       daysUntilDue: Math.ceil((new Date(row.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
     }));
     
     const stats = await getPublishingStats(persona);
+    const urgentCount = deadlines.filter((p: any) => p.priority === 'urgent').length;
+    const soonCount = deadlines.filter((p: any) => p.priority === 'soon').length;
     
     return NextResponse.json({
       upcoming: deadlines,
       total: deadlines.length,
+      summary: {
+        urgent: urgentCount,
+        soon: soonCount,
+        total: deadlines.length,
+      },
       stats,
       persona,
+      responseTime,
       generatedAt: new Date().toISOString(),
     });
     
   } catch (error) {
     console.error('Publishing upcoming API error:', error);
+    
+    const responseTime = Date.now() - startTime;
+    const { recordApiResponse } = await import('@/lib/monitoring');
+    recordApiResponse('/api/publishing/upcoming', responseTime);
+    
     return NextResponse.json(
-      { error: 'Failed to fetch upcoming publications', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Failed to fetch upcoming publications', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        responseTime,
+      },
       { status: 500 }
     );
   }
