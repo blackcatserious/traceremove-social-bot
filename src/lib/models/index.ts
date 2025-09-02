@@ -35,8 +35,8 @@ let clients: {
 export function getOpenAIClient(): OpenAI {
   if (!clients.openai) {
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '') {
-      throw new Error('OpenAI API key not configured');
+    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
+      throw new Error('OpenAI API key not configured properly. Please set OPENAI_API_KEY environment variable.');
     }
     clients.openai = new OpenAI({ apiKey });
   }
@@ -46,8 +46,8 @@ export function getOpenAIClient(): OpenAI {
 export function getAnthropicClient(): Anthropic {
   if (!clients.anthropic) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '') {
-      throw new Error('Anthropic API key not configured');
+    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
+      throw new Error('Anthropic API key not configured properly. Please set ANTHROPIC_API_KEY environment variable.');
     }
     clients.anthropic = new Anthropic({ apiKey });
   }
@@ -57,8 +57,8 @@ export function getAnthropicClient(): Anthropic {
 export function getGoogleClient(): GoogleGenerativeAI {
   if (!clients.google) {
     const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '') {
-      throw new Error('Google API key not configured');
+    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
+      throw new Error('Google API key not configured properly. Please set GOOGLE_API_KEY environment variable.');
     }
     clients.google = new GoogleGenerativeAI(apiKey);
   }
@@ -68,8 +68,8 @@ export function getGoogleClient(): GoogleGenerativeAI {
 export function getMistralClient(): Mistral {
   if (!clients.mistral) {
     const apiKey = process.env.MISTRAL_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '') {
-      throw new Error('Mistral API key not configured');
+    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
+      throw new Error('Mistral API key not configured properly. Please set MISTRAL_API_KEY environment variable.');
     }
     clients.mistral = new Mistral(apiKey);
   }
@@ -79,8 +79,8 @@ export function getMistralClient(): Mistral {
 export function getGroqClient(): Groq {
   if (!clients.groq) {
     const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey || apiKey.includes('your_') || apiKey === '') {
-      throw new Error('Groq API key not configured');
+    if (!apiKey || apiKey.includes('your_') || apiKey === '' || apiKey.includes('place')) {
+      throw new Error('Groq API key not configured properly. Please set GROQ_API_KEY environment variable.');
     }
     clients.groq = new Groq({ apiKey });
   }
@@ -245,8 +245,13 @@ export async function generateResponse(
     console.error(`Error with ${provider} ${model}:`, error);
     
     if (provider !== 'openai') {
-      console.log('Falling back to OpenAI...');
-      return generateResponse(messages, { provider: 'openai', model: 'gpt-4o-mini', temperature });
+      console.log(`Falling back to OpenAI due to ${provider} error...`);
+      try {
+        return generateResponse(messages, { provider: 'openai', model: 'gpt-4o-mini', temperature });
+      } catch (fallbackError) {
+        console.error('Fallback to OpenAI also failed:', fallbackError);
+        throw new Error(`Both ${provider} and OpenAI fallback failed. Please check API key configuration.`);
+      }
     }
     
     throw error;

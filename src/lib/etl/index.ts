@@ -89,10 +89,13 @@ let notionClient: NotionClient | null = null;
 export function getNotionClient(): NotionClient {
   if (!notionClient) {
     const token = process.env.NOTION_TOKEN;
-    if (!token) {
-      throw new Error('Notion token not configured');
+    if (!token || token.includes('your_') || token === '' || token.includes('place')) {
+      throw new Error('Notion token not configured properly. Please set NOTION_TOKEN environment variable with a valid integration token.');
     }
-    notionClient = new NotionClient({ auth: token });
+    notionClient = new NotionClient({ 
+      auth: token,
+      timeoutMs: 30000,
+    });
   }
   return notionClient;
 }
@@ -101,18 +104,33 @@ export async function extractFromNotion(databaseConfig: NotionDatabaseConfig): P
   const notion = getNotionClient();
   const allPages: any[] = [];
   let cursor: string | undefined;
+  let pageCount = 0;
+  
+  console.log(`Extracting from ${databaseConfig.name} database (${databaseConfig.id})...`);
   
   do {
-    const response = await notion.databases.query({
-      database_id: databaseConfig.id,
-      start_cursor: cursor,
-      page_size: 100,
-    });
-    
-    allPages.push(...response.results);
-    cursor = response.next_cursor || undefined;
+    try {
+      const response = await notion.databases.query({
+        database_id: databaseConfig.id,
+        start_cursor: cursor,
+        page_size: 100,
+      });
+      
+      allPages.push(...response.results);
+      cursor = response.next_cursor || undefined;
+      pageCount += response.results.length;
+      
+      if (pageCount % 100 === 0) {
+        console.log(`Extracted ${pageCount} pages from ${databaseConfig.name}...`);
+      }
+      
+    } catch (error) {
+      console.error(`Failed to extract from ${databaseConfig.name}:`, error);
+      throw new Error(`Notion extraction failed for ${databaseConfig.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   } while (cursor);
   
+  console.log(`Completed extraction: ${allPages.length} pages from ${databaseConfig.name}`);
   return allPages;
 }
 
@@ -204,7 +222,7 @@ export async function loadToVectorDB(
   visibility: 'public' | 'internal'
 ): Promise<void> {
   const content = record.content || record.summary || record.notes || record.title || record.name;
-  if (!content) return;
+  if (!content || content.length < 10) return;
   
   try {
     const embedding = await embedText(content);
@@ -212,7 +230,7 @@ export async function loadToVectorDB(
     
     const namespace = visibility === 'public' ? 'traceremove_public' : 'traceremove_internal';
     
-    await vectorIndex.upsert([{
+    const vectorData = {
       id: `${table}_${record.notion_id}`,
       vector: embedding,
       metadata: {
@@ -224,11 +242,18 @@ export async function loadToVectorDB(
         lang: record.lang || 'en',
         status: record.status || 'active',
         updated_at: record.updated_at?.toISOString() || new Date().toISOString(),
+        tags: Array.isArray(record.tags) ? record.tags.join(', ') : '',
+        topic: record.topic || '',
       }
-    }], { namespace });
+    };
+    
+    await vectorIndex.upsert([vectorData], { namespace });
     
   } catch (error) {
     console.error(`Failed to index ${table} record ${record.notion_id}:`, error);
+    if (error instanceof Error && error.message.includes('API key')) {
+      throw new Error('Vector database API key not configured properly. Please check UPSTASH_VECTOR_REST_URL and UPSTASH_VECTOR_REST_TOKEN.');
+    }
   }
 }
 

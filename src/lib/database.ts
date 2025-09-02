@@ -5,8 +5,8 @@ let pool: Pool | null = null;
 export function getPool(): Pool {
   if (!pool) {
     const connectionString = process.env.PG_DSN;
-    if (!connectionString) {
-      throw new Error('PG_DSN environment variable is required');
+    if (!connectionString || connectionString.includes('placeholder') || connectionString === '') {
+      throw new Error('PG_DSN environment variable is required. Please configure PostgreSQL connection string.');
     }
     
     pool = new Pool({
@@ -14,6 +14,11 @@ export function getPool(): Pool {
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
+      ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+    });
+    
+    pool.on('error', (err) => {
+      console.error('PostgreSQL pool error:', err);
     });
   }
   return pool;
@@ -23,8 +28,32 @@ export async function query(text: string, params?: any[]): Promise<any> {
   const pool = getPool();
   const client = await pool.connect();
   try {
+    const startTime = Date.now();
     const result = await client.query(text, params);
+    const duration = Date.now() - startTime;
+    
+    if (duration > 1000) {
+      console.warn(`Slow query detected (${duration}ms):`, text.substring(0, 100));
+    }
+    
+    try {
+      const { performanceMonitor } = await import('./performance');
+      performanceMonitor.recordQuery({
+        query: text.substring(0, 100),
+        duration,
+        rows: result.rows?.length || 0,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (perfError) {
+      console.debug('Performance monitoring error:', perfError);
+    }
+    
     return result;
+  } catch (error) {
+    console.error('Database query error:', error);
+    console.error('Query:', text);
+    console.error('Params:', params);
+    throw error;
   } finally {
     client.release();
   }

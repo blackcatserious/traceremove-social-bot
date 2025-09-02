@@ -8,6 +8,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const q = request.nextUrl.searchParams.get('q') || '';
     const persona = (request.nextUrl.searchParams.get('persona') || 'public') as 'public' | 'internal';
@@ -22,6 +24,14 @@ export async function GET(request: NextRequest) {
     const context = await getContext(q, 'search', 6, persona);
     const answer = await generateAnswer(q, context, persona);
     
+    const responseTime = Date.now() - startTime;
+    
+    const { recordApiResponse, recordModelUsage } = await import('@/lib/monitoring');
+    recordApiResponse('/api/search', responseTime);
+    if (answer.usage) {
+      recordModelUsage(answer.provider, answer.usage.totalTokens);
+    }
+    
     return NextResponse.json({
       query: q,
       persona,
@@ -30,12 +40,23 @@ export async function GET(request: NextRequest) {
       documents: docs,
       model: answer.model,
       provider: answer.provider,
+      responseTime,
+      usage: answer.usage,
     });
     
   } catch (error) {
     console.error('Search API error:', error);
+    
+    const responseTime = Date.now() - startTime;
+    const { recordApiResponse } = await import('@/lib/monitoring');
+    recordApiResponse('/api/search', responseTime);
+    
     return NextResponse.json(
-      { error: 'Search failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Search failed', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        responseTime,
+      },
       { status: 500 }
     );
   }
@@ -58,55 +79,61 @@ async function buildSQLFilter(q: string, persona: 'public' | 'internal'): Promis
 
 async function searchDocuments(filter: any, limit: number): Promise<any[]> {
   try {
-    const visibilityCondition = filter.visibility === 'public' 
-      ? "visibility = 'public'" 
-      : "visibility IN ('public', 'internal')";
+    const { cache, cacheKey, withCache } = await import('@/lib/cache');
+    const cacheKeyStr = cacheKey('search', JSON.stringify(filter), limit.toString());
     
-    const statusCondition = filter.status 
-      ? `AND status IN (${filter.status.map((s: string) => `'${s}'`).join(', ')})`
-      : '';
-    
-    const langCondition = filter.lang 
-      ? `AND lang IN (${filter.lang.map((l: string) => `'${l}'`).join(', ')})`
-      : '';
-    
-    const keywordCondition = filter.keywords && filter.keywords.length > 0
-      ? `AND (${filter.keywords.map((k: string) => 
-          `(title ILIKE '%${k}%' OR summary ILIKE '%${k}%' OR content ILIKE '%${k}%')`
-        ).join(' OR ')})`
-      : '';
-    
-    const searchQuery = `
-      SELECT 'catalog' as table_name, notion_id, title, summary, topic, tags, status, lang, url, updated_at
-      FROM catalog 
-      WHERE ${visibilityCondition} ${statusCondition} ${langCondition} ${keywordCondition}
+    return await withCache(cacheKeyStr, async () => {
+      const visibilityCondition = filter.visibility === 'public' 
+        ? "visibility = 'public'" 
+        : "visibility IN ('public', 'internal')";
       
-      UNION ALL
+      const statusCondition = filter.status 
+        ? `AND status IN (${filter.status.map((s: string) => `'${s}'`).join(', ')})`
+        : '';
       
-      SELECT 'cases' as table_name, notion_id, name as title, terms as summary, status as topic, keys as tags, status, 'en' as lang, url, updated_at
-      FROM cases 
-      WHERE ${visibilityCondition} ${keywordCondition}
+      const langCondition = filter.lang 
+        ? `AND lang IN (${filter.lang.map((l: string) => `'${l}'`).join(', ')})`
+        : '';
       
-      UNION ALL
+      const keywordCondition = filter.keywords && filter.keywords.length > 0
+        ? `AND (${filter.keywords.map((k: string) => 
+            `(title ILIKE $${filter.keywords.indexOf(k) + 1} OR summary ILIKE $${filter.keywords.indexOf(k) + 1} OR content ILIKE $${filter.keywords.indexOf(k) + 1})`
+          ).join(' OR ')})`
+        : '';
       
-      SELECT 'publishing' as table_name, notion_id, title, notes as summary, type as topic, tags, submission_status as status, lang, url, updated_at
-      FROM publishing 
-      WHERE ${visibilityCondition} ${langCondition} ${keywordCondition}
+      const searchQuery = `
+        SELECT 'catalog' as table_name, notion_id, title, summary, topic, tags, status, lang, url, updated_at
+        FROM catalog 
+        WHERE ${visibilityCondition} ${statusCondition} ${langCondition} ${keywordCondition}
+        
+        UNION ALL
+        
+        SELECT 'cases' as table_name, notion_id, name as title, terms as summary, status as topic, keys as tags, status, 'en' as lang, url, updated_at
+        FROM cases 
+        WHERE ${visibilityCondition} ${keywordCondition}
+        
+        UNION ALL
+        
+        SELECT 'publishing' as table_name, notion_id, title, notes as summary, type as topic, tags, submission_status as status, lang, url, updated_at
+        FROM publishing 
+        WHERE ${visibilityCondition} ${langCondition} ${keywordCondition}
+        
+        ${filter.visibility === 'internal' ? `
+        UNION ALL
+        
+        SELECT 'finance' as table_name, notion_id, name as title, notes as summary, 'finance' as topic, ARRAY[]::text[] as tags, 'active' as status, 'en' as lang, null as url, updated_at
+        FROM finance 
+        WHERE ${keywordCondition}
+        ` : ''}
+        
+        ORDER BY updated_at DESC
+        LIMIT $${filter.keywords ? filter.keywords.length + 1 : 1}
+      `;
       
-      ${filter.visibility === 'internal' ? `
-      UNION ALL
-      
-      SELECT 'finance' as table_name, notion_id, name as title, notes as summary, 'finance' as topic, ARRAY[]::text[] as tags, 'active' as status, 'en' as lang, null as url, updated_at
-      FROM finance 
-      WHERE ${keywordCondition}
-      ` : ''}
-      
-      ORDER BY updated_at DESC
-      LIMIT ${limit}
-    `;
-    
-    const result = await query(searchQuery);
-    return result.rows || [];
+      const params = filter.keywords ? [...filter.keywords.map((k: string) => `%${k}%`), limit] : [limit];
+      const result = await query(searchQuery, params);
+      return result.rows || [];
+    }, 60);
     
   } catch (error) {
     console.error('SQL search error:', error);
