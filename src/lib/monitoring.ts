@@ -7,6 +7,22 @@ export interface SystemMetrics {
   modelUsage: Record<string, { requests: number; tokens: number; errors: number }>;
   memoryUsage: number;
   uptime: number;
+  cacheStats?: {
+    size: number;
+    hitRate: number;
+    maxSize: number;
+  };
+  queryPerformance?: {
+    averageResponseTime: number;
+    slowQueries: number;
+    totalQueries: number;
+  };
+  etlStatus?: {
+    lastFullSync: string;
+    lastIncrementalSync: string;
+    totalRecords: number;
+    syncErrors: number;
+  };
 }
 
 export interface HealthCheck {
@@ -74,6 +90,31 @@ export function updateHealthCheck(service: string, status: HealthCheck['status']
 export function getSystemMetrics(): SystemMetrics {
   metrics.uptime = process.uptime();
   metrics.memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
+  
+  try {
+    const { getCacheStats } = require('./cache-advanced');
+    const cacheStats = getCacheStats();
+    metrics.cacheStats = {
+      size: cacheStats.size,
+      hitRate: cacheStats.hitRate,
+      maxSize: cacheStats.maxSize,
+    };
+  } catch (error) {
+    console.debug('Cache stats not available:', error);
+  }
+  
+  try {
+    const { getPerformanceStats } = require('./performance');
+    const perfStats = getPerformanceStats();
+    metrics.queryPerformance = {
+      averageResponseTime: perfStats.averageQueryTime,
+      slowQueries: perfStats.slowQueries,
+      totalQueries: perfStats.totalQueries,
+    };
+  } catch (error) {
+    console.debug('Performance stats not available:', error);
+  }
+  
   return { ...metrics };
 }
 

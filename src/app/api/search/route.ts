@@ -79,10 +79,28 @@ async function buildSQLFilter(q: string, persona: 'public' | 'internal'): Promis
 
 async function searchDocuments(filter: any, limit: number): Promise<any[]> {
   try {
-    const { cache, cacheKey, withCache } = await import('@/lib/cache');
-    const cacheKeyStr = cacheKey('search', JSON.stringify(filter), limit.toString());
+    const { withAdvancedCache, getCachedSearchResults, cacheSearchResults } = await import('@/lib/cache-advanced');
+    const searchKey = `${JSON.stringify(filter)}_${limit}`;
     
-    return await withCache(cacheKeyStr, async () => {
+    const cached = await getCachedSearchResults(searchKey, filter.visibility);
+    if (cached) {
+      console.log(`🎯 Cache hit for search: ${searchKey}`);
+      return cached;
+    }
+    
+    const results = await executeSearchQuery(filter, limit);
+    await cacheSearchResults(searchKey, filter.visibility, results);
+    return results;
+    
+  } catch (error) {
+    console.error('❌ SQL search error:', error);
+    console.error('Filter:', filter);
+    return [];
+  }
+}
+
+async function executeSearchQuery(filter: any, limit: number): Promise<any[]> {
+  try {
       const visibilityCondition = filter.visibility === 'public' 
         ? "visibility = 'public'" 
         : "visibility IN ('public', 'internal')";
@@ -150,13 +168,18 @@ async function searchDocuments(filter: any, limit: number): Promise<any[]> {
       
       console.log(`📊 Search completed: ${result.rows?.length || 0} results in ${duration}ms`);
       
+      try {
+        const { getCachedQueryResult, cacheQueryResult } = await import('@/lib/cache-advanced');
+        await cacheQueryResult(searchQuery, params, result.rows || [], 600000); // Cache for 10 minutes
+      } catch (cacheError) {
+        console.debug('Query caching failed:', cacheError);
+      }
+      
       return result.rows || [];
-    }, 300);
-    
+      
   } catch (error) {
-    console.error('❌ SQL search error:', error);
-    console.error('Filter:', filter);
-    return [];
+    console.error('❌ SQL search execution error:', error);
+    throw error;
   }
 }
 
