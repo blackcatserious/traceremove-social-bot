@@ -95,48 +95,67 @@ async function searchDocuments(filter: any, limit: number): Promise<any[]> {
         ? `AND lang IN (${filter.lang.map((l: string) => `'${l}'`).join(', ')})`
         : '';
       
-      const keywordCondition = filter.keywords && filter.keywords.length > 0
-        ? `AND (${filter.keywords.map((k: string) => 
-            `(title ILIKE $${filter.keywords.indexOf(k) + 1} OR summary ILIKE $${filter.keywords.indexOf(k) + 1} OR content ILIKE $${filter.keywords.indexOf(k) + 1})`
-          ).join(' OR ')})`
-        : '';
+      let keywordCondition = '';
+      let keywordParams: string[] = [];
+      
+      if (filter.keywords && filter.keywords.length > 0) {
+        const conditions = filter.keywords.map((k: string, index: number) => {
+          keywordParams.push(`%${k}%`, `%${k}%`, `%${k}%`);
+          const paramIndex = index * 3;
+          return `(title ILIKE $${paramIndex + 1} OR summary ILIKE $${paramIndex + 2} OR content ILIKE $${paramIndex + 3})`;
+        });
+        keywordCondition = `AND (${conditions.join(' OR ')})`;
+      }
       
       const searchQuery = `
-        SELECT 'catalog' as table_name, notion_id, title, summary, topic, tags, status, lang, url, updated_at
+        SELECT 'catalog' as table_name, notion_id, title, summary, topic, tags, status, lang, url, updated_at,
+               ts_rank(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(content, '')), plainto_tsquery('english', $${keywordParams.length + 1})) as rank
         FROM catalog 
         WHERE ${visibilityCondition} ${statusCondition} ${langCondition} ${keywordCondition}
         
         UNION ALL
         
-        SELECT 'cases' as table_name, notion_id, name as title, terms as summary, status as topic, keys as tags, status, 'en' as lang, url, updated_at
+        SELECT 'cases' as table_name, notion_id, name as title, terms as summary, status as topic, keys as tags, status, 'en' as lang, url, updated_at,
+               ts_rank(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(terms, '')), plainto_tsquery('english', $${keywordParams.length + 1})) as rank
         FROM cases 
-        WHERE ${visibilityCondition} ${keywordCondition}
+        WHERE ${visibilityCondition} ${keywordCondition.replace(/content/g, 'terms')}
         
         UNION ALL
         
-        SELECT 'publishing' as table_name, notion_id, title, notes as summary, type as topic, tags, submission_status as status, lang, url, updated_at
+        SELECT 'publishing' as table_name, notion_id, title, notes as summary, type as topic, tags, submission_status as status, lang, url, updated_at,
+               ts_rank(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(notes, '')), plainto_tsquery('english', $${keywordParams.length + 1})) as rank
         FROM publishing 
-        WHERE ${visibilityCondition} ${langCondition} ${keywordCondition}
+        WHERE ${visibilityCondition} ${langCondition} ${keywordCondition.replace(/content/g, 'notes')}
         
         ${filter.visibility === 'internal' ? `
         UNION ALL
         
-        SELECT 'finance' as table_name, notion_id, name as title, notes as summary, 'finance' as topic, ARRAY[]::text[] as tags, 'active' as status, 'en' as lang, null as url, updated_at
+        SELECT 'finance' as table_name, notion_id, name as title, notes as summary, 'finance' as topic, ARRAY[]::text[] as tags, 'active' as status, 'en' as lang, null as url, updated_at,
+               ts_rank(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(notes, '')), plainto_tsquery('english', $${keywordParams.length + 1})) as rank
         FROM finance 
-        WHERE ${keywordCondition}
+        WHERE ${keywordCondition.replace(/content/g, 'notes')}
         ` : ''}
         
-        ORDER BY updated_at DESC
-        LIMIT $${filter.keywords ? filter.keywords.length + 1 : 1}
+        ORDER BY rank DESC, updated_at DESC
+        LIMIT $${keywordParams.length + 2}
       `;
       
-      const params = filter.keywords ? [...filter.keywords.map((k: string) => `%${k}%`), limit] : [limit];
+      const searchTerm = filter.keywords ? filter.keywords.join(' ') : '';
+      const params = [...keywordParams, searchTerm, limit];
+      
+      console.log(`🔍 Executing search query with ${params.length} parameters`);
+      const startTime = Date.now();
       const result = await query(searchQuery, params);
+      const duration = Date.now() - startTime;
+      
+      console.log(`📊 Search completed: ${result.rows?.length || 0} results in ${duration}ms`);
+      
       return result.rows || [];
-    }, 60);
+    }, 300);
     
   } catch (error) {
-    console.error('SQL search error:', error);
+    console.error('❌ SQL search error:', error);
+    console.error('Filter:', filter);
     return [];
   }
 }
