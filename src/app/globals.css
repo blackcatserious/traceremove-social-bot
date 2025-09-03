@@ -66,6 +66,10 @@ body::after,
   border-radius: 8px;
   padding: 24px;
   transition: all 0.2s ease;
+  height: auto;
+  min-height: fit-content;
+  display: flex;
+  flex-direction: column;
 }
 
 .card-professional:hover {
@@ -197,6 +201,8 @@ body::after,
 .grid-professional {
   display: grid;
   gap: 24px;
+  align-items: start;
+  min-height: fit-content;
 }
 
 .grid-cols-1 { grid-template-columns: repeat(1, 1fr); }
@@ -229,6 +235,11 @@ body::after,
   .grid-cols-4 {
     grid-template-columns: 1fr;
   }
+  
+  .grid-professional {
+    gap: 16px;
+    min-height: auto;
+  }
 }
 
 @media (max-width: 480px) {
@@ -244,6 +255,8 @@ body::after,
 
   .card-professional {
     padding: 0.75rem;
+    min-height: auto;
+    height: auto;
   }
 }
 
@@ -251,6 +264,8 @@ body::after,
 @media (max-width: 640px) {
   .card-professional {
     padding: 1rem;
+    min-height: auto;
+    height: auto;
   }
   
   .grid-professional {
