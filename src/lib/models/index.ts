@@ -119,13 +119,138 @@ export function getGroqClient(): Groq {
   return clients.groq;
 }
 
+interface ModelPerformanceMetrics {
+  provider: ModelProvider;
+  model: string;
+  avgResponseTime: number;
+  errorRate: number;
+  costPerToken: number;
+  successRate: number;
+  lastUpdated: Date;
+}
+
+let modelMetrics: Map<string, ModelPerformanceMetrics> = new Map();
+
+export function updateModelMetrics(provider: ModelProvider, model: string, responseTime: number, success: boolean, tokens: number, cost: number) {
+  const key = `${provider}-${model}`;
+  const existing = modelMetrics.get(key);
+  
+  if (existing) {
+    const totalRequests = existing.successRate > 0 ? Math.round(1 / (1 - existing.successRate)) : 1;
+    const newTotalRequests = totalRequests + 1;
+    
+    existing.avgResponseTime = (existing.avgResponseTime * totalRequests + responseTime) / newTotalRequests;
+    existing.errorRate = success ? 
+      (existing.errorRate * totalRequests) / newTotalRequests :
+      (existing.errorRate * totalRequests + 1) / newTotalRequests;
+    existing.costPerToken = tokens > 0 ? (existing.costPerToken + cost / tokens) / 2 : existing.costPerToken;
+    existing.successRate = (existing.successRate * totalRequests + (success ? 1 : 0)) / newTotalRequests;
+    existing.lastUpdated = new Date();
+  } else {
+    modelMetrics.set(key, {
+      provider,
+      model,
+      avgResponseTime: responseTime,
+      errorRate: success ? 0 : 1,
+      costPerToken: tokens > 0 ? cost / tokens : 0,
+      successRate: success ? 1 : 0,
+      lastUpdated: new Date()
+    });
+  }
+}
+
 export function pickModel(options: {
   intent: 'qa' | 'long' | 'code' | 'analysis';
   length: number;
   persona?: string;
+  prioritize?: 'speed' | 'cost' | 'quality';
 }): ModelConfig {
-  const { intent, length, persona } = options;
+  const { intent, length, persona, prioritize = 'quality' } = options;
   
+  const candidates = getModelCandidates(intent, length, persona);
+  
+  if (prioritize === 'speed') {
+    return selectFastestModel(candidates);
+  } else if (prioritize === 'cost') {
+    return selectCheapestModel(candidates);
+  } else {
+    return selectBestQualityModel(candidates, intent, length, persona);
+  }
+}
+
+function getModelCandidates(intent: string, length: number, persona?: string): ModelConfig[] {
+  const candidates: ModelConfig[] = [];
+  
+  if (intent === 'code' && length < 2000) {
+    candidates.push(
+      { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.1 },
+      { provider: 'groq', model: 'llama-3.1-8b-instant', temperature: 0.1 }
+    );
+  } else if (intent === 'long' || length > 4000) {
+    candidates.push(
+      { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', temperature: 0.7 },
+      { provider: 'openai', model: 'gpt-4o', temperature: 0.7 }
+    );
+  } else if (intent === 'analysis' && (persona === 'philosopher' || persona === 'comprehensive-ai')) {
+    candidates.push(
+      { provider: 'openai', model: 'gpt-4o', temperature: 0.6 },
+      { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', temperature: 0.6 }
+    );
+  } else if (persona === 'comprehensive-ai' && intent === 'qa') {
+    candidates.push(
+      { provider: 'openai', model: 'gpt-4o', temperature: 0.7 },
+      { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', temperature: 0.7 }
+    );
+  } else if (intent === 'qa' && length < 1000) {
+    candidates.push(
+      { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.7 },
+      { provider: 'groq', model: 'llama-3.1-8b-instant', temperature: 0.7 },
+      { provider: 'google', model: 'gemini-pro', temperature: 0.7 }
+    );
+  }
+  
+  if (candidates.length === 0) {
+    candidates.push({ provider: 'openai', model: 'gpt-4o-mini', temperature: 0.7 });
+  }
+  
+  return candidates;
+}
+
+function selectFastestModel(candidates: ModelConfig[]): ModelConfig {
+  let fastest = candidates[0];
+  let bestTime = Infinity;
+  
+  for (const candidate of candidates) {
+    const key = `${candidate.provider}-${candidate.model}`;
+    const metrics = modelMetrics.get(key);
+    
+    if (metrics && metrics.avgResponseTime < bestTime && metrics.successRate > 0.9) {
+      fastest = candidate;
+      bestTime = metrics.avgResponseTime;
+    }
+  }
+  
+  return fastest;
+}
+
+function selectCheapestModel(candidates: ModelConfig[]): ModelConfig {
+  let cheapest = candidates[0];
+  let bestCost = Infinity;
+  
+  for (const candidate of candidates) {
+    const key = `${candidate.provider}-${candidate.model}`;
+    const metrics = modelMetrics.get(key);
+    
+    if (metrics && metrics.costPerToken < bestCost && metrics.successRate > 0.9) {
+      cheapest = candidate;
+      bestCost = metrics.costPerToken;
+    }
+  }
+  
+  return cheapest;
+}
+
+function selectBestQualityModel(candidates: ModelConfig[], intent: string, length: number, persona?: string): ModelConfig {
   if (intent === 'code' && length < 2000) {
     return { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.1 };
   }
@@ -149,11 +274,57 @@ export function pickModel(options: {
   return { provider: 'openai', model: 'gpt-4o-mini', temperature: 0.7 };
 }
 
+export function getModelRecommendations(): {
+  fastest: ModelConfig[];
+  cheapest: ModelConfig[];
+  mostReliable: ModelConfig[];
+  recommendations: string[];
+} {
+  const allMetrics = Array.from(modelMetrics.values());
+  
+  const fastest = allMetrics
+    .filter(m => m.successRate > 0.9)
+    .sort((a, b) => a.avgResponseTime - b.avgResponseTime)
+    .slice(0, 3)
+    .map(m => ({ provider: m.provider, model: m.model, temperature: 0.7 }));
+  
+  const cheapest = allMetrics
+    .filter(m => m.successRate > 0.9 && m.costPerToken > 0)
+    .sort((a, b) => a.costPerToken - b.costPerToken)
+    .slice(0, 3)
+    .map(m => ({ provider: m.provider, model: m.model, temperature: 0.7 }));
+  
+  const mostReliable = allMetrics
+    .sort((a, b) => b.successRate - a.successRate)
+    .slice(0, 3)
+    .map(m => ({ provider: m.provider, model: m.model, temperature: 0.7 }));
+  
+  const recommendations = [];
+  
+  const avgErrorRate = allMetrics.reduce((sum, m) => sum + m.errorRate, 0) / allMetrics.length;
+  if (avgErrorRate > 0.05) {
+    recommendations.push('Consider implementing more robust error handling - average error rate is above 5%');
+  }
+  
+  const avgResponseTime = allMetrics.reduce((sum, m) => sum + m.avgResponseTime, 0) / allMetrics.length;
+  if (avgResponseTime > 2000) {
+    recommendations.push('Response times are elevated - consider load balancing or model optimization');
+  }
+  
+  const costVariance = Math.max(...allMetrics.map(m => m.costPerToken)) - Math.min(...allMetrics.map(m => m.costPerToken));
+  if (costVariance > 0.001) {
+    recommendations.push('Significant cost variance between models - review routing strategy for cost optimization');
+  }
+  
+  return { fastest, cheapest, mostReliable, recommendations };
+}
+
 export async function generateResponse(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   config: ModelConfig
 ): Promise<ModelResponse> {
   const { provider, model, temperature = 0.7, maxTokens = 1000 } = config;
+  const startTime = Date.now();
   
   if (shouldMockExternalApis()) {
     console.log(`Mock response for ${provider} ${model}`);
@@ -286,8 +457,17 @@ export async function generateResponse(
       }
     }, 2);
     
+    const responseTime = Date.now() - startTime;
+    const tokens = result.usage?.totalTokens || 0;
+    const cost = calculateCost(provider, model, tokens);
+    
+    updateModelMetrics(provider, model, responseTime, true, tokens, cost);
+    
     return result;
   } catch (error) {
+    const responseTime = Date.now() - startTime;
+    updateModelMetrics(provider, model, responseTime, false, 0, 0);
+    
     console.error(`Error with ${provider} ${model}:`, error);
     
     if (provider !== 'openai') {
@@ -302,4 +482,29 @@ export async function generateResponse(
     
     throw error;
   }
+}
+
+function calculateCost(provider: ModelProvider, model: string, tokens: number): number {
+  const costPerToken: Record<string, Record<string, number>> = {
+    openai: {
+      'gpt-4o': 0.00003,
+      'gpt-4o-mini': 0.00000015,
+      'gpt-4': 0.00003
+    },
+    anthropic: {
+      'claude-3-5-sonnet-20241022': 0.000015,
+      'claude-3-haiku-20240307': 0.00000025
+    },
+    google: {
+      'gemini-pro': 0.0000005
+    },
+    mistral: {
+      'mistral-large': 0.000008
+    },
+    groq: {
+      'llama-3.1-8b-instant': 0.0000001
+    }
+  };
+  
+  return (costPerToken[provider]?.[model] || 0.000001) * tokens;
 }
