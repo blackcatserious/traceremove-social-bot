@@ -204,7 +204,7 @@ body::after,
 .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
 
-/* Responsive */
+/* Responsive Design */
 @media (max-width: 768px) {
   .nav-professional {
     transform: translateX(-100%);
@@ -219,11 +219,42 @@ body::after,
     margin-left: 0;
     padding: 16px;
   }
+
+  .card-professional {
+    padding: 1rem;
+  }
   
   .grid-cols-2,
   .grid-cols-3,
   .grid-cols-4 {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-cols-4,
+  .grid-cols-3,
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .main-content {
+    padding: 0.75rem;
+  }
+
+  .card-professional {
+    padding: 0.75rem;
+  }
+}
+
+/* Additional responsive improvements */
+@media (max-width: 640px) {
+  .card-professional {
+    padding: 1rem;
+  }
+  
+  .grid-professional {
+    gap: 1rem;
   }
 }
 
