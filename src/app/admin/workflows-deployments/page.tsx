@@ -3,8 +3,20 @@
 import React, { useState } from 'react';
 import { Play, Pause, Plus, Edit3, Trash2, Clock, CheckCircle, AlertTriangle, Calendar, Rocket, GitBranch, Globe } from 'lucide-react';
 
+interface WorkflowData {
+  workflows: any[];
+  templates: any[];
+  stats: {
+    total: number;
+    active: number;
+    totalRuns: number;
+  };
+}
+
 export default function WorkflowsDeploymentsPage() {
   const [activeTab, setActiveTab] = useState('workflows');
+  const [workflowData, setWorkflowData] = useState<WorkflowData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const workflows = [
     {
