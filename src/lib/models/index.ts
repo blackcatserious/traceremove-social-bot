@@ -42,12 +42,12 @@ export function getOpenAIClient(): OpenAI {
       return clients.openai;
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey || apiKey.trim() === '' || apiKey.includes('your_') || !apiKey.startsWith('sk-')) {
+    const config = getEnvironmentConfig();
+    if (!config?.openai?.apiKey || config.openai.apiKey.trim() === '') {
       throw new ExternalServiceError('OpenAI', 'API key not configured properly. Please set OPENAI_API_KEY environment variable.');
     }
     
-    clients.openai = new OpenAI({ apiKey });
+    clients.openai = new OpenAI({ apiKey: config.openai.apiKey });
   }
   return clients.openai;
 }
