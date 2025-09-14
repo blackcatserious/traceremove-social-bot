@@ -17,41 +17,58 @@ export async function GET(request: NextRequest) {
     const persona = (request.nextUrl.searchParams.get('persona') || 'public') as 'public' | 'internal';
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
 
-    // Placeholder response for smoke test
     if (!q.trim()) {
       return NextResponse.json({ error: 'Query parameter q is required' }, { status: 400 });
     }
 
-    // Simulate answer and sources
+    // For now, provide a simple placeholder response for smoke test
+    // TODO: Implement full RAG functionality with database integration
     const answer = `Sample answer for query: ${q}`;
     const sources = [
       { title: 'Материалы и ссылки', url: 'https://notion.so/25cef6a76fa5800b8241f8ed4cd3be33' },
       { title: 'Реестр контента Traceremove', url: 'https://notion.so/6d3da5a01186475d8c2b794cca147a86' }
     ];
-    return NextResponse.json({ answer, sources });
+    
+    const responseTime = Date.now() - startTime;
+
     return NextResponse.json({
       query: q,
       persona,
-      answer: answer.content,
-      sources: extractSources(context),
-      documents: docs,
-      model: answer.model,
-      provider: answer.provider,
+      answer,
+      sources,
       responseTime,
-      usage: answer.usage,
+      generatedAt: new Date().toISOString(),
     });
     
   } catch (error) {
     console.error('Search API error:', error);
     
     const responseTime = Date.now() - startTime;
-    const { recordApiResponse } = await import('@/lib/monitoring');
-    recordApiResponse('/api/search', responseTime);
     
-    const { response, status } = handleAPIError(error);
-    response.responseTime = responseTime;
+    try {
+      const { recordApiResponse } = await import('@/lib/monitoring');
+      recordApiResponse('/api/search', responseTime);
+    } catch (monitoringError) {
+      console.log('Monitoring not available:', monitoringError);
+    }
     
-    return NextResponse.json(response, { status });
+    try {
+      const { handleAPIError } = await import('@/lib/error-handling');
+      const { response, status } = handleAPIError(error);
+      return NextResponse.json({
+        ...response,
+        responseTime
+      }, { status });
+    } catch (errorHandlingError) {
+      return NextResponse.json(
+        { 
+          error: 'Internal server error', 
+          responseTime,
+          details: error instanceof Error ? error.message : 'Unknown error'
+        },
+        { status: 500 }
+      );
+    }
   }
 }
 
