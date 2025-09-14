@@ -3,14 +3,24 @@ import { getPersonaByHost, detectLanguage } from '@/lib/bot.config';
 import { getContext } from '@/lib/rag';
 import { ContentGenerator } from '@/lib/generator';
 import { generateResponse, pickModel } from '@/lib/models';
+import { getEnvironmentConfig, shouldMockExternalApis } from '@/lib/env-validation';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 
 function hasValidOpenAIKey(): boolean {
+  if (shouldMockExternalApis()) {
+    return false;
+  }
+  
+  const config = getEnvironmentConfig();
+  if (config?.openai?.apiKey && config.openai.apiKey.trim() !== '') {
+    return true;
+  }
+  
   const apiKey = process.env.OPENAI_API_KEY;
-  return !!(apiKey && !apiKey.includes('your_') && apiKey !== '');
+  return !!(apiKey && apiKey.trim() !== '' && !apiKey.includes('your_') && apiKey.startsWith('sk-'));
 }
 
 async function generateComprehensiveResponse(message: string, persona: any): Promise<string> {
