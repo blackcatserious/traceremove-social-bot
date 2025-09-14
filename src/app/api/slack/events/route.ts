@@ -1,7 +1,25 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.body?.type === 'url_verification') return res.status(200).send(req.body.challenge);
-  // handle app_mention/message.im → proxy to /api/search
-  return res.status(200).json({ ok: true });
+export const runtime = 'nodejs';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    // Handle URL verification challenge
+    if (body?.type === 'url_verification') {
+      return new Response(body.challenge, { status: 200 });
+    }
+    
+    // Handle app_mention/message.im → proxy to /api/search
+    // Add your Slack event handling logic here
+    
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('Slack events API error:', error);
+    return NextResponse.json(
+      { error: 'Failed to process Slack event' },
+      { status: 500 }
+    );
+  }
 }

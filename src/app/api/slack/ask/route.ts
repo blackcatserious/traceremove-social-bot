@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 function verifySlackSignature(req: NextRequest) {
   const ts = req.headers.get('x-slack-request-timestamp') || '';
