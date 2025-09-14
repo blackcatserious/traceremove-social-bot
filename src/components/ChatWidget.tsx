@@ -2,12 +2,15 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send } from 'lucide-react';
+import { MessageCircle, X, Send, Paperclip } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  sources?: Array<{ title: string; url: string }>;
+  attachments?: Array<{ name: string; url: string; type: string }>;
 }
 
 
@@ -18,6 +21,7 @@ interface ChatResponse {
   chatTitle?: string;
   chatSubtitle?: string;
   result?: string; // for xai-chat
+  sources?: Array<{ title: string; url: string }>;
 }
 
 type ChatWidgetProps = {
@@ -31,7 +35,9 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [chatTitle, setChatTitle] = useState('AI Assistant');
   const [chatSubtitle, setChatSubtitle] = useState('How can I help?');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,17 +47,66 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
     scrollToBottom();
   }, [messages]);
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('File upload failed');
+      }
+      
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('File upload error:', error);
+      throw error;
+    }
+  };
+
   const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if ((!inputValue.trim() && !selectedFile) || isLoading) return;
+
+    let attachments: Array<{ name: string; url: string; type: string }> = [];
+    
+    if (selectedFile) {
+      try {
+        const fileUrl = await uploadFile(selectedFile);
+        attachments.push({
+          name: selectedFile.name,
+          url: fileUrl,
+          type: selectedFile.type,
+        });
+      } catch (error) {
+        console.error('File upload failed:', error);
+      }
+    }
 
     const userMessage: Message = {
       role: 'user',
-      content: inputValue.trim(),
+      content: inputValue.trim() || (selectedFile ? `Uploaded file: ${selectedFile.name}` : ''),
       timestamp: new Date(),
+      attachments: attachments.length > 0 ? attachments : undefined,
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setIsLoading(true);
 
     try {
@@ -64,6 +119,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
               role: msg.role,
               content: msg.content,
             })),
+            attachments: userMessage.attachments,
           };
 
       const response = await fetch(endpoint, {
@@ -88,12 +144,13 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
-        setChatTitle(data.chatTitle);
-        setChatSubtitle(data.chatSubtitle);
+        if (data.chatTitle) setChatTitle(data.chatTitle);
+        if (data.chatSubtitle) setChatSubtitle(data.chatSubtitle);
         const assistantMessage: Message = {
           role: 'assistant',
-          content: data.reply,
+          content: data.reply || 'I apologize, but I could not generate a response.',
           timestamp: new Date(),
+          sources: data.sources,
         };
         setMessages(prev => [...prev, assistantMessage]);
       }
@@ -228,7 +285,65 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                           : '0 4px 12px rgba(0, 0, 0, 0.2)'
                       }}
                     >
-                      <p className="whitespace-pre-wrap m-0">{message.content}</p>
+                      <div className="whitespace-pre-wrap m-0">
+                        {message.role === 'assistant' ? (
+                          <ReactMarkdown
+                            components={{
+                              a: ({ href, children }) => (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-300 hover:text-blue-100 underline"
+                                >
+                                  {children}
+                                </a>
+                              ),
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        ) : (
+                          message.content
+                        )}
+                      </div>
+                      
+                      {message.attachments && message.attachments.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {message.attachments.map((attachment, index) => (
+                            <div key={index} className="flex items-center space-x-2 text-xs">
+                              <Paperclip className="w-3 h-3" />
+                              <a
+                                href={attachment.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-300 hover:text-blue-100 underline"
+                              >
+                                {attachment.name}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {message.sources && message.sources.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-600/50">
+                          <div className="text-xs font-semibold mb-1 text-gray-300">Sources:</div>
+                          {message.sources.map((source, index) => (
+                            <div key={index} className="text-xs">
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-300 hover:text-blue-100 underline"
+                              >
+                                {source.title}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
                       <p className={`text-xs mt-1 m-0 ${
                         message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
                       }`}>
@@ -277,7 +392,43 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
               transition={{ delay: 0.2 }}
               className="p-4 border-t border-gray-700/50 bg-gradient-to-r from-gray-800/30 to-gray-700/30 rounded-b-2xl"
             >
+              {selectedFile && (
+                <div className="mb-2 p-2 bg-gray-800/60 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Paperclip className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm text-gray-300">{selectedFile.name}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              
               <div className="flex space-x-3">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept="image/*,.pdf,.doc,.docx,.txt"
+                />
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-gray-700/80 hover:bg-gray-600/80 text-gray-300 hover:text-white rounded-xl px-3 py-3 text-sm transition-all duration-200 border border-gray-600/50"
+                  disabled={isLoading}
+                >
+                  <Paperclip size={16} />
+                </motion.button>
                 <motion.textarea
                   whileFocus={{ scale: 1.02 }}
                   value={inputValue}
@@ -295,10 +446,10 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={sendMessage}
-                  disabled={!inputValue.trim() || isLoading}
+                  disabled={(!inputValue.trim() && !selectedFile) || isLoading}
                   className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-sm transition-all duration-200 shadow-lg"
                   style={{
-                    boxShadow: !inputValue.trim() || isLoading 
+                    boxShadow: (!inputValue.trim() && !selectedFile) || isLoading 
                       ? '0 4px 12px rgba(0, 0, 0, 0.2)' 
                       : '0 4px 12px rgba(37, 99, 235, 0.3)'
                   }}

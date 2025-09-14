@@ -12,63 +12,34 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
     // Placeholder response for smoke test
     const deadlines = [
-      { title: 'AI Ethics Conference', due_date: '2025-09-21', url: 'https://example.com/ai-ethics' },
-      { title: 'ML Journal Submission', due_date: '2025-09-25', url: 'https://example.com/ml-journal' }
+      { 
+        id: 'ai-ethics-conf',
+        title: 'AI Ethics Conference', 
+        due_date: '2025-09-21', 
+        url: 'https://example.com/ai-ethics',
+        priority: 'urgent',
+        daysUntilDue: 7
+      },
+      { 
+        id: 'ml-journal-sub',
+        title: 'ML Journal Submission', 
+        due_date: '2025-09-25', 
+        url: 'https://example.com/ml-journal',
+        priority: 'soon',
+        daysUntilDue: 11
+      }
     ];
-    return NextResponse.json(deadlines.slice(0, limit));
-          ELSE 'upcoming'
-        END as priority
-      FROM publishing 
-      WHERE ${visibilityCondition}
-        AND due_date IS NOT NULL 
-        AND due_date >= CURRENT_DATE
-        AND due_date <= CURRENT_DATE + INTERVAL '${days} days'
-        AND submission_status NOT IN ('published', 'rejected', 'withdrawn')
-      ORDER BY due_date ASC, updated_at DESC
-      LIMIT $1
-    `;
     
-    const result = await query(upcomingQuery, [limit]);
     const responseTime = Date.now() - startTime;
     
-    const { recordApiResponse } = await import('@/lib/monitoring');
-    recordApiResponse('/api/publishing/upcoming', responseTime);
-    
-    const deadlines = result.rows.map((row: any) => ({
-      id: row.notion_id,
-      title: row.title,
-      ownership: row.ownership,
-      type: row.type,
-      channel: row.channel,
-      pubDate: row.pub_date,
-      venue: row.venue,
-      citationStyle: row.citation_style,
-      submissionStatus: row.submission_status,
-      dueDate: row.due_date,
-      doi: row.doi,
-      lang: row.lang,
-      tags: row.tags || [],
-      notes: row.notes,
-      url: row.url,
-      updatedAt: row.updated_at,
-      priority: row.priority,
-      daysUntilDue: Math.ceil((new Date(row.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)),
-    }));
-    
-    const stats = await getPublishingStats(persona);
-    const urgentCount = deadlines.filter((p: any) => p.priority === 'urgent').length;
-    const soonCount = deadlines.filter((p: any) => p.priority === 'soon').length;
-    
     return NextResponse.json({
-      upcoming: deadlines,
+      upcoming: deadlines.slice(0, limit),
       total: deadlines.length,
       summary: {
-        urgent: urgentCount,
-        soon: soonCount,
+        urgent: deadlines.filter(d => d.priority === 'urgent').length,
+        soon: deadlines.filter(d => d.priority === 'soon').length,
         total: deadlines.length,
       },
-      stats,
-      persona,
       responseTime,
       generatedAt: new Date().toISOString(),
     });
