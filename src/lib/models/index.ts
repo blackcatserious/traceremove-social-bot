@@ -36,12 +36,6 @@ let clients: {
 
 export function getOpenAIClient(): OpenAI {
   if (!clients.openai) {
-    if (shouldMockExternalApis()) {
-      console.log('Using mock OpenAI client for development');
-      clients.openai = {} as OpenAI;
-      return clients.openai;
-    }
-
     const config = getEnvironmentConfig();
     if (!config?.openai?.apiKey || config.openai.apiKey.trim() === '') {
       throw new ExternalServiceError('OpenAI', 'API key not configured properly. Please set OPENAI_API_KEY environment variable.');
