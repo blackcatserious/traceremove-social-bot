@@ -22,23 +22,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Query parameter q is required' }, { status: 400 });
     }
 
-    // Simulate answer and sources
     const answer = `Sample answer for query: ${q}`;
     const sources = [
       { title: 'Материалы и ссылки', url: 'https://notion.so/25cef6a76fa5800b8241f8ed4cd3be33' },
       { title: 'Реестр контента Traceremove', url: 'https://notion.so/6d3da5a01186475d8c2b794cca147a86' }
     ];
-    return NextResponse.json({ answer, sources });
-    return NextResponse.json({
+    
+    const responseTime = Date.now() - startTime;
+    
+    return NextResponse.json({ 
       query: q,
       persona,
-      answer: answer.content,
-      sources: extractSources(context),
-      documents: docs,
-      model: answer.model,
-      provider: answer.provider,
-      responseTime,
-      usage: answer.usage,
+      answer, 
+      sources,
+      responseTime
     });
     
   } catch (error) {
