@@ -10,10 +10,6 @@ export const dynamic = 'force-dynamic';
 
 
 function hasValidOpenAIKey(): boolean {
-  if (shouldMockExternalApis()) {
-    return false;
-  }
-  
   const config = getEnvironmentConfig();
   return !!(config?.openai?.apiKey && config.openai.apiKey.trim() !== '');
 }
