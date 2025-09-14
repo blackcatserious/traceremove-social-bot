@@ -10,15 +10,21 @@ interface Message {
   timestamp: Date;
 }
 
+
 interface ChatResponse {
-  reply: string;
-  persona: string;
-  lang: string;
-  chatTitle: string;
-  chatSubtitle: string;
+  reply?: string;
+  persona?: string;
+  lang?: string;
+  chatTitle?: string;
+  chatSubtitle?: string;
+  result?: string; // for xai-chat
 }
 
-export default function ChatWidget() {
+type ChatWidgetProps = {
+  useXai?: boolean;
+};
+
+export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -49,18 +55,23 @@ export default function ChatWidget() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      const endpoint = useXai ? '/api/xai-chat' : '/api/chat';
+      const payload = useXai
+        ? { prompt: userMessage.content }
+        : {
+            message: userMessage.content,
+            history: messages.map(msg => ({
+              role: msg.role,
+              content: msg.content,
+            })),
+          };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: userMessage.content,
-          history: messages.map(msg => ({
-            role: msg.role,
-            content: msg.content,
-          })),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -69,16 +80,23 @@ export default function ChatWidget() {
 
       const data: ChatResponse = await response.json();
 
-      setChatTitle(data.chatTitle);
-      setChatSubtitle(data.chatSubtitle);
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.reply,
-        timestamp: new Date(),
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      if (useXai) {
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: data.result || 'No response from xai model.',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        setChatTitle(data.chatTitle);
+        setChatSubtitle(data.chatSubtitle);
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: data.reply,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage: Message = {

@@ -20,7 +20,7 @@ export default function RootLayout({
         <main className="relative">
           {children}
         </main>
-        <ChatWidget />
+  <ChatWidget useXai />
       </body>
     </html>
   );

@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@ai-sdk/xai": "^2.0.18",
     "@anthropic-ai/sdk": "^0.24.0",
     "@aws-sdk/client-s3": "^3.600.0",
     "@google/generative-ai": "^0.15.0",
@@ -17,8 +18,10 @@
     "@octokit/rest": "^22.0.0",
     "@types/react-dom": "^19.1.9",
     "@upstash/vector": "^1.2.2",
+    "ai": "^5.0.44",
     "autoprefixer": "^10.4.21",
     "axios": "^1.4.0",
+    "dotenv": "^17.2.2",
     "framer-motion": "^12.23.12",
     "groq-sdk": "^0.5.0",
     "lucide-react": "^0.542.0",
@@ -36,6 +39,7 @@
     "@types/node": "^20.0.0",
     "@types/pg": "^8.10.0",
     "@types/react": "^19.1.12",
+    "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   }
 }
