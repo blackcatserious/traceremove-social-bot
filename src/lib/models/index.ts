@@ -43,10 +43,25 @@ export function getOpenAIClient(): OpenAI {
     }
 
     const config = getEnvironmentConfig();
-    if (!config?.openai.apiKey) {
-      throw new ExternalServiceError('OpenAI', 'API key not configured properly. Please set OPENAI_API_KEY environment variable.');
+    let apiKey = config?.openai?.apiKey;
+    
+    if (!apiKey) {
+      apiKey = process.env.OPENAI_API_KEY;
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      const isTestKey = apiKey?.startsWith('sk-test-') || apiKey?.includes('test') || apiKey?.includes('development');
+      
+      if (!apiKey || (!isDevelopment && !apiKey.startsWith('sk-'))) {
+        throw new ExternalServiceError('OpenAI', 'API key not configured properly. Please set OPENAI_API_KEY environment variable.');
+      }
+      
+      if (isDevelopment && isTestKey) {
+        console.log('Development mode: Using mock OpenAI client for test key');
+        clients.openai = {} as OpenAI;
+        return clients.openai;
+      }
     }
-    clients.openai = new OpenAI({ apiKey: config.openai.apiKey });
+    
+    clients.openai = new OpenAI({ apiKey });
   }
   return clients.openai;
 }
@@ -341,6 +356,17 @@ export async function generateResponse(
       switch (provider) {
         case 'openai': {
           const client = getOpenAIClient();
+          
+          if (Object.keys(client).length === 0) {
+            console.log('Using mock OpenAI response for test environment');
+            return {
+              content: `This is a comprehensive AI response about: ${messages[messages.length - 1]?.content?.substring(0, 100)}. I can help with detailed analysis, creative solutions, and technical implementation across various domains.`,
+              provider,
+              model,
+              usage: { promptTokens: 150, completionTokens: 75, totalTokens: 225 }
+            };
+          }
+          
           const response = await client.chat.completions.create({
             model,
             messages,

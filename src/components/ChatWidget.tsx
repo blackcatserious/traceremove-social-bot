@@ -252,8 +252,16 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
     }
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (date: Date | string) => {
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+        return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
   };
 
   return (
