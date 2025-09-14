@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPersonaByHost, detectLanguage } from '@/lib/bot.config';
 import { getContext } from '@/lib/rag';
 import { generateResponse, pickModel } from '@/lib/models';
+import { getEnvironmentConfig, shouldMockExternalApis } from '@/lib/env-validation';
 
 function detectLanguageFromText(text: string): string {
   const russianPattern = /[а-яё]/i;
@@ -20,8 +21,17 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 function hasValidOpenAIKey(): boolean {
+  if (shouldMockExternalApis()) {
+    return false;
+  }
+  
+  const config = getEnvironmentConfig();
+  if (config?.openai?.apiKey && config.openai.apiKey.trim() !== '') {
+    return true;
+  }
+  
   const apiKey = process.env.OPENAI_API_KEY;
-  return !!(apiKey && !apiKey.includes('your_') && apiKey !== '');
+  return !!(apiKey && apiKey.trim() !== '' && !apiKey.includes('your_') && apiKey.startsWith('sk-'));
 }
 
 export async function POST(request: NextRequest) {
