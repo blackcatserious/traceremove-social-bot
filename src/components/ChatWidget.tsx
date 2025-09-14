@@ -45,6 +45,76 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
     scrollToBottom();
   }, [messages]);
 
+  const [conversationId, setConversationId] = useState<string>('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  useEffect(() => {
+    loadConversationHistory();
+    generateConversationId();
+  }, []);
+
+  const loadConversationHistory = () => {
+    try {
+      const saved = localStorage.getItem('chatWidget_conversation');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setMessages(parsed.messages || []);
+        setConversationId(parsed.id || generateConversationId());
+      }
+    } catch (error) {
+      console.error('Failed to load conversation history:', error);
+    }
+  };
+
+  const saveConversationHistory = (newMessages: Message[]) => {
+    try {
+      const conversation = {
+        id: conversationId,
+        messages: newMessages,
+        lastUpdated: new Date().toISOString(),
+      };
+      localStorage.setItem('chatWidget_conversation', JSON.stringify(conversation));
+    } catch (error) {
+      console.error('Failed to save conversation history:', error);
+    }
+  };
+
+  const generateConversationId = () => {
+    const id = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setConversationId(id);
+    return id;
+  };
+
+  const exportConversation = () => {
+    try {
+      const conversation = {
+        id: conversationId,
+        messages,
+        exportedAt: new Date().toISOString(),
+      };
+      const blob = new Blob([JSON.stringify(conversation, null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `conversation_${conversationId}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export conversation:', error);
+    }
+  };
+
+  const clearConversation = () => {
+    setMessages([]);
+    localStorage.removeItem('chatWidget_conversation');
+    generateConversationId();
+  };
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -99,13 +169,16 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
       attachments: attachments.length > 0 ? attachments : undefined,
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    saveConversationHistory(newMessages);
     setInputValue('');
     setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
     setIsLoading(true);
+    setIsTyping(true);
 
     try {
       const endpoint = useXai ? '/api/xai-chat' : '/api/chat';
@@ -140,7 +213,9 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
           content: data.result || 'No response from xai model.',
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, assistantMessage]);
+        const finalMessages = [...newMessages, assistantMessage];
+        setMessages(finalMessages);
+        saveConversationHistory(finalMessages);
       } else {
         if (data.chatTitle) setChatTitle(data.chatTitle);
         if (data.chatSubtitle) setChatSubtitle(data.chatSubtitle);
@@ -150,7 +225,9 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
           timestamp: new Date(),
           sources: data.sources,
         };
-        setMessages(prev => [...prev, assistantMessage]);
+        const finalMessages = [...newMessages, assistantMessage];
+        setMessages(finalMessages);
+        saveConversationHistory(finalMessages);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -159,9 +236,12 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
         content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      const finalMessages = [...newMessages, errorMessage];
+      setMessages(finalMessages);
+      saveConversationHistory(finalMessages);
     } finally {
       setIsLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -200,13 +280,40 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
               <h3 className="chatwidget-title">{chatTitle}</h3>
               <p className="chatwidget-subtitle">{chatSubtitle}</p>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="chatwidget-close"
-              aria-label="Close chat"
-            >
-              <X size={18} />
-            </button>
+            <div className="chatwidget-header-actions">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="chatwidget-action-btn"
+                title="Export Options"
+              >
+                💾
+              </button>
+              <button
+                onClick={clearConversation}
+                className="chatwidget-action-btn"
+                title="Clear Conversation"
+              >
+                🗑️
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="chatwidget-close"
+                aria-label="Close chat"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            {showExportMenu && (
+              <div className="chatwidget-export-menu">
+                <button onClick={() => { exportConversation(); setShowExportMenu(false); }}>
+                  Export as JSON
+                </button>
+                <button onClick={() => { setShowExportMenu(false); }}>
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Messages */}
@@ -288,7 +395,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
               </div>
             ))}
             
-            {isLoading && (
+            {(isLoading || isTyping) && (
               <div className="chatwidget-message chatwidget-message-assistant">
                 <div className="chatwidget-message-content">
                   <div className="chatwidget-loading">
