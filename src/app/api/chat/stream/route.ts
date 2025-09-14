@@ -25,11 +25,6 @@ function hasValidOpenAIKey(): boolean {
     return false;
   }
   
-  const config = getEnvironmentConfig();
-  if (config?.openai?.apiKey && config.openai.apiKey.trim() !== '') {
-    return true;
-  }
-  
   const apiKey = process.env.OPENAI_API_KEY;
   return !!(apiKey && apiKey.trim() !== '' && !apiKey.includes('your_') && apiKey.startsWith('sk-'));
 }
