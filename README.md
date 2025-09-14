@@ -1,14 +1,14 @@
-# traceremove-social-bot
+# TraceRemove Digital Arthur Ziganshine System
 
-This repository contains a Next.js 14 application designed to automate the process of publishing posts from a Notion database to multiple social media platforms.  
+This repository contains a comprehensive AI-powered digital assistant system with domain-specific personas, RAG capabilities, and full project implementation features.  
 The bot pulls content from a Notion database, formats it into short posts with a philosophical tone and publishes them on a schedule to **X/Twitter**, **Facebook** and **Instagram**.  
 
 ## Features
 
 * **Scheduled publishing** – Uses Vercel cron jobs to run once per hour and pick up any posts that are ready to publish.
 * **Notion integration** – Reads posts from a Notion database with properties such as `Title`, `Summary`, `Status`, `Publish At`, `Platforms`, `Tags`, etc., and marks them as `Published` after successful posting.
-* **Multi‑platform support** – Separate publishers for X/Twitter, Facebook and Instagram.  Dry‑run mode is enabled by default via the `BOT_DRY_RUN` environment variable.
-* **Custom formatting** – Posts are assembled using a simple formatter or an optional OpenAI model to rewrite the summary in a "philosopher of technology" style.
+* **Multi‑platform support** – Separate publishers for X/Twitter, Facebook, Instagram, and GitHub.  Dry‑run mode is enabled by default via the `BOT_DRY_RUN` environment variable.
+* **Custom formatting** – Posts are assembled using a simple formatter or an optional OpenAI model to rewrite the summary in a “philosopher of technology” style.
 
 ## Getting started
 
@@ -32,7 +32,7 @@ The application expects a Notion database with the following properties:
 | **Summary**     | Rich text     | A short summary of the content                        |
 | **Status**      | Select        | One of `Draft`, `Ready`, `Scheduled`, `Published`     |
 | **Publish At**  | Date          | Date/time at which the post should be published       |
-| **Platforms**   | Multi‑select  | Which networks to publish to: `X`, `Facebook`, `Instagram` |
+| **Platforms**   | Multi‑select  | Which networks to publish to: `X`, `Facebook`, `Instagram`, `GitHub` |
 | **Canonical URL** | URL         | Link to the full article                              |
 | **Image URL**   | URL           | URL of an image to include (Instagram required)        |
 | **Tags**        | Multi‑select  | Short tags used to build hashtags (e.g. `ethics`)      |
@@ -66,6 +66,12 @@ IG_ACCESS_TOKEN=
 # OpenAI (optional)
 OPENAI_API_KEY=
 LLM_MODE=off
+
+# GitHub integration
+GITHUB_TOKEN=
+GITHUB_WEBHOOK_SECRET=
+GITHUB_OWNER=blackcatserious
+GITHUB_REPO=traceremove-social-bot
 ```
 
 ## Folder structure
@@ -89,10 +95,16 @@ traceremove-social-bot/
     │   └── publishers/
     │       ├── x.ts      – publish to X/Twitter
     │       ├── facebook.ts – publish to Facebook
-    │       └── instagram.ts – publish to Instagram
+    │       ├── instagram.ts – publish to Instagram
+    │       └── github.ts – publish to GitHub
     └── app/
         └── api/
             ├── cron/
             │   └── publish/route.ts – scheduled publishing endpoint
-            └── publish/route.ts      – manual publishing endpoint
+            ├── publish/route.ts      – manual publishing endpoint
+            ├── webhooks/
+            │   └── github/route.ts   – GitHub webhook handler
+            ├── chat/route.ts         – AI chatbot endpoint
+            └── admin/
+                └── reindex/route.ts  – RAG reindex endpoint
 ```
