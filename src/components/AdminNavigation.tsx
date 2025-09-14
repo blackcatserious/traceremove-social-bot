@@ -53,6 +53,7 @@ const navigationItems = [
   { href: '/admin/workflows-deployments', label: 'Workflows & Deployments', icon: Workflow },
   { href: '/admin/content-publishing', label: 'Content & Publishing', icon: FileText },
   { href: '/admin/models-vectors', label: 'Models & Vectors', icon: Brain },
+  { href: '/admin/ai-analytics', label: 'AI Analytics', icon: BarChart3 },
   { href: '/admin/analytics-reports', label: 'Analytics & Reports', icon: BarChart3 },
   { href: '/admin/integrations-github', label: 'Integrations & GitHub', icon: Share2 },
   { href: '/admin/projects-users', label: 'Projects & Users', icon: Users },

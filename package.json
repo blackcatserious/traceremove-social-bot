@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:ngrok": "node scripts/dev-with-ngrok.js",
     "build": "next build",
     "start": "next start"
   },
