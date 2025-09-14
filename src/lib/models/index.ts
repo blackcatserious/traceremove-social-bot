@@ -42,23 +42,9 @@ export function getOpenAIClient(): OpenAI {
       return clients.openai;
     }
 
-    const config = getEnvironmentConfig();
-    let apiKey = config?.openai?.apiKey;
-    
-    if (!apiKey) {
-      apiKey = process.env.OPENAI_API_KEY;
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      const isTestKey = apiKey?.startsWith('sk-test-') || apiKey?.includes('test') || apiKey?.includes('development');
-      
-      if (!apiKey || (!isDevelopment && !apiKey.startsWith('sk-'))) {
-        throw new ExternalServiceError('OpenAI', 'API key not configured properly. Please set OPENAI_API_KEY environment variable.');
-      }
-      
-      if (isDevelopment && isTestKey) {
-        console.log('Development mode: Using mock OpenAI client for test key');
-        clients.openai = {} as OpenAI;
-        return clients.openai;
-      }
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey || apiKey.trim() === '' || apiKey.includes('your_') || !apiKey.startsWith('sk-')) {
+      throw new ExternalServiceError('OpenAI', 'API key not configured properly. Please set OPENAI_API_KEY environment variable.');
     }
     
     clients.openai = new OpenAI({ apiKey });
