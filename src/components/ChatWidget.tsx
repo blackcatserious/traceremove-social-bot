@@ -219,46 +219,45 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.8, opacity: 0, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed bottom-6 right-6 w-96 h-[500px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col z-50 border border-gray-700/50"
+            className="fixed bottom-6 right-6 w-96 h-[500px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-xl flex flex-col z-50 border border-gray-200"
             style={{
-              background: 'linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(31, 41, 55, 0.95) 100%)',
-              boxShadow: '0 25px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)'
             }}
           >
             <motion.div 
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="flex items-center justify-between p-4 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-t-2xl"
+              className="flex items-center justify-between p-4 border-b border-gray-200 bg-white rounded-t-2xl"
             >
               <div>
-                <h3 className="text-white font-semibold text-sm">{chatTitle}</h3>
-                <p className="text-gray-400 text-xs">{chatSubtitle}</p>
+                <h3 className="text-gray-900 font-semibold text-sm">{chatTitle}</h3>
+                <p className="text-gray-600 text-xs">{chatSubtitle}</p>
               </div>
               <motion.button
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700/50"
+                className="text-gray-500 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-100"
                 aria-label="Close chat"
               >
                 <X size={18} />
               </motion.button>
             </motion.div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent bg-gray-50">
               <AnimatePresence>
                 {messages.length === 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-center text-gray-400 text-sm mt-8"
+                    className="text-center text-gray-500 text-sm mt-8"
                   >
                     <motion.div
                       animate={{ y: [0, -5, 0] }}
                       transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                     >
-                      <MessageCircle size={32} className="mx-auto mb-3 text-gray-500" />
+                      <MessageCircle size={32} className="mx-auto mb-3 text-gray-400" />
                     </motion.div>
                     <p>Welcome! How can I help you today?</p>
                   </motion.div>
@@ -274,15 +273,15 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                   >
                     <motion.div
                       whileHover={{ scale: 1.02 }}
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
                         message.role === 'user'
-                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
-                          : 'bg-gray-700/80 backdrop-blur-sm text-gray-100 border border-gray-600/50'
+                          ? 'bg-gray-800 text-white'
+                          : 'bg-white text-gray-900 border border-gray-200'
                       }`}
                       style={{
                         boxShadow: message.role === 'user' 
-                          ? '0 4px 12px rgba(37, 99, 235, 0.3)' 
-                          : '0 4px 12px rgba(0, 0, 0, 0.2)'
+                          ? '0 2px 8px rgba(0, 0, 0, 0.1)' 
+                          : '0 2px 8px rgba(0, 0, 0, 0.05)'
                       }}
                     >
                       <div className="whitespace-pre-wrap m-0">
@@ -294,7 +293,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                                   href={href}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-blue-300 hover:text-blue-100 underline"
+                                  className="text-blue-600 hover:text-blue-800 underline"
                                 >
                                   {children}
                                 </a>
@@ -327,8 +326,8 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                       )}
                       
                       {message.sources && message.sources.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-gray-600/50">
-                          <div className="text-xs font-semibold mb-1 text-gray-300">Sources:</div>
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <div className="text-xs font-semibold mb-1 text-gray-600">Sources:</div>
                           {message.sources.map((source, index) => (
                             <div key={index} className="text-xs">
                               <a
@@ -345,7 +344,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                       )}
                       
                       <p className={`text-xs mt-1 m-0 ${
-                        message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
+                        message.role === 'user' ? 'text-gray-300' : 'text-gray-500'
                       }`}>
                         {formatTime(message.timestamp)}
                       </p>
@@ -360,20 +359,20 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                     exit={{ opacity: 0, y: -20 }}
                     className="flex justify-start"
                   >
-                    <div className="bg-gray-700/80 backdrop-blur-sm text-gray-100 rounded-2xl px-4 py-3 text-sm border border-gray-600/50">
+                    <div className="bg-white text-gray-900 rounded-2xl px-4 py-3 text-sm border border-gray-200 shadow-sm">
                       <div className="flex items-center space-x-1">
                         <motion.div
-                          className="w-2 h-2 bg-gray-400 rounded-full"
+                          className="w-2 h-2 bg-gray-500 rounded-full"
                           animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0 }}
                         />
                         <motion.div
-                          className="w-2 h-2 bg-gray-400 rounded-full"
+                          className="w-2 h-2 bg-gray-500 rounded-full"
                           animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
                         />
                         <motion.div
-                          className="w-2 h-2 bg-gray-400 rounded-full"
+                          className="w-2 h-2 bg-gray-500 rounded-full"
                           animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
                           transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
                         />
@@ -390,13 +389,13 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="p-4 border-t border-gray-700/50 bg-gradient-to-r from-gray-800/30 to-gray-700/30 rounded-b-2xl"
+              className="p-4 border-t border-gray-200 bg-white rounded-b-2xl"
             >
               {selectedFile && (
-                <div className="mb-2 p-2 bg-gray-800/60 rounded-lg flex items-center justify-between">
+                <div className="mb-2 p-2 bg-gray-100 rounded-lg flex items-center justify-between border border-gray-200">
                   <div className="flex items-center space-x-2">
-                    <Paperclip className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-300">{selectedFile.name}</span>
+                    <Paperclip className="w-4 h-4 text-gray-600" />
+                    <span className="text-sm text-gray-700">{selectedFile.name}</span>
                   </div>
                   <button
                     onClick={() => {
@@ -405,7 +404,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                         fileInputRef.current.value = '';
                       }
                     }}
-                    className="text-gray-400 hover:text-white transition-colors"
+                    className="text-gray-500 hover:text-gray-700 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -424,7 +423,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => fileInputRef.current?.click()}
-                  className="bg-gray-700/80 hover:bg-gray-600/80 text-gray-300 hover:text-white rounded-xl px-3 py-3 text-sm transition-all duration-200 border border-gray-600/50"
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 rounded-xl px-3 py-3 text-sm transition-all duration-200 border border-gray-300"
                   disabled={isLoading}
                 >
                   <Paperclip size={16} />
@@ -435,11 +434,11 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Type your message..."
-                  className="flex-1 bg-gray-800/80 backdrop-blur-sm text-white rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 border border-gray-600/50 transition-all duration-200"
+                  className="flex-1 bg-white text-gray-900 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-300 transition-all duration-200"
                   rows={1}
                   disabled={isLoading}
                   style={{
-                    boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.2)'
+                    boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.1)'
                   }}
                 />
                 <motion.button
@@ -447,11 +446,11 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
                   whileTap={{ scale: 0.95 }}
                   onClick={sendMessage}
                   disabled={(!inputValue.trim() && !selectedFile) || isLoading}
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-sm transition-all duration-200 shadow-lg"
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 text-sm transition-all duration-200"
                   style={{
                     boxShadow: (!inputValue.trim() && !selectedFile) || isLoading 
-                      ? '0 4px 12px rgba(0, 0, 0, 0.2)' 
-                      : '0 4px 12px rgba(37, 99, 235, 0.3)'
+                      ? '0 2px 4px rgba(0, 0, 0, 0.1)' 
+                      : '0 2px 8px rgba(37, 99, 235, 0.2)'
                   }}
                 >
                   <motion.div
