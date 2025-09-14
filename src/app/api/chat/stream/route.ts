@@ -4,7 +4,7 @@ import { getContext } from '@/lib/rag';
 import { generateResponse, pickModel } from '@/lib/models';
 import { getEnvironmentConfig, shouldMockExternalApis } from '@/lib/env-validation';
 
-function detectLanguage(text: string): string {
+function detectLanguageFromText(text: string): string {
   const russianPattern = /[а-яё]/i;
   const spanishPattern = /[ñáéíóúü]/i;
   const frenchPattern = /[àâäéèêëïîôöùûüÿç]/i;
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('host') || 'traceremove.com';
     const persona = getPersonaByHost(host);
     
-    const detectedLang = language === 'auto' ? detectLanguage(message) : language;
+    const detectedLang = language === 'auto' ? detectLanguageFromText(message) : language;
     
     if (!hasValidOpenAIKey()) {
       console.log('Using mock response - OpenAI API key not configured');
