@@ -46,9 +46,8 @@ export function getOpenAIClient(): OpenAI {
     if (!config?.openai?.apiKey || config.openai.apiKey.trim() === '') {
       throw new ExternalServiceError('OpenAI', 'API key not configured properly. Please set OPENAI_API_KEY environment variable.');
     }
-    const apiKey = config.openai.apiKey;
     
-    clients.openai = new OpenAI({ apiKey });
+    clients.openai = new OpenAI({ apiKey: config.openai.apiKey });
   }
   return clients.openai;
 }
