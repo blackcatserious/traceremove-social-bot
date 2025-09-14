@@ -321,31 +321,11 @@ export async function generateResponse(
   const { provider, model, temperature = 0.7, maxTokens = 1000 } = config;
   const startTime = Date.now();
   
-  if (shouldMockExternalApis()) {
-    console.log(`Mock response for ${provider} ${model}`);
-    return {
-      content: `Mock response from ${provider} ${model} for: ${messages[messages.length - 1]?.content?.substring(0, 50)}...`,
-      provider,
-      model,
-      usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 }
-    };
-  }
-  
   try {
     const result = await withRetry(async () => {
       switch (provider) {
         case 'openai': {
           const client = getOpenAIClient();
-          
-          if (Object.keys(client).length === 0) {
-            console.log('Using mock OpenAI response for test environment');
-            return {
-              content: `This is a comprehensive AI response about: ${messages[messages.length - 1]?.content?.substring(0, 100)}. I can help with detailed analysis, creative solutions, and technical implementation across various domains.`,
-              provider,
-              model,
-              usage: { promptTokens: 150, completionTokens: 75, totalTokens: 225 }
-            };
-          }
           
           const response = await client.chat.completions.create({
             model,
