@@ -3,6 +3,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
 console.log('🚀 Starting development server with ngrok tunnel...');
 
@@ -32,6 +33,43 @@ setTimeout(() => {
       console.log(`📱 Use this URL for webhook testing and external access\n`);
       
       fs.writeFileSync(path.join(__dirname, '../.ngrok-url'), ngrokUrl);
+      
+      console.log('🔧 Starting webhook testing server on port 3001...');
+      const webhookServer = http.createServer((req, res) => {
+        if (req.method === 'POST' && req.url === '/webhook/test') {
+          let body = '';
+          req.on('data', chunk => {
+            body += chunk.toString();
+          });
+          req.on('end', () => {
+            console.log('📨 Webhook received:', body);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              status: 'received', 
+              timestamp: new Date().toISOString(),
+              body: body 
+            }));
+          });
+        } else if (req.method === 'GET' && req.url === '/tunnel/status') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            active: true,
+            url: ngrokUrl,
+            localPort: 3000,
+            webhookPort: 3001,
+            timestamp: new Date().toISOString()
+          }));
+        } else {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Not found' }));
+        }
+      });
+      
+      webhookServer.listen(3001, () => {
+        console.log('🎯 Webhook testing server running on http://localhost:3001');
+        console.log(`Webhook Test: http://localhost:3001/webhook/test`);
+        console.log(`Tunnel Status: http://localhost:3001/tunnel/status`);
+      });
     }
   });
 

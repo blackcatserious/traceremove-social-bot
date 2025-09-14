@@ -10,6 +10,8 @@ interface Message {
   timestamp: Date;
   sources?: Array<{ title: string; url: string }>;
   attachments?: Array<{ name: string; url: string; type: string }>;
+  model?: string;
+  language?: string;
 }
 
 interface ChatResponse {
@@ -20,6 +22,11 @@ interface ChatResponse {
   chatSubtitle?: string;
   result?: string;
   sources?: Array<{ title: string; url: string }>;
+  model?: string;
+  conversationId?: string;
+  streaming?: boolean;
+  usage?: any;
+  attachments?: Array<{ name: string; url: string; type: string }>;
 }
 
 type ChatWidgetProps = {
@@ -115,10 +122,59 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
     generateConversationId();
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    if (file.size > maxSize) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/files/analyze', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.analysis) {
+        const analysisPreview = result.analysis.length > 200 
+          ? result.analysis.substring(0, 200) + '...' 
+          : result.analysis;
+        
+        setInputValue(prev => 
+          prev + (prev ? '\n\n' : '') + `📎 File attached: ${file.name}\n📋 Analysis: ${analysisPreview}`
+        );
+      } else {
+        setInputValue(prev => 
+          prev + (prev ? '\n\n' : '') + `📎 File attached: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`
+        );
+      }
+      
       setSelectedFile(file);
+    } catch (error) {
+      console.error('File upload error:', error);
+      alert(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -181,7 +237,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
     setIsTyping(true);
 
     try {
-      const endpoint = useXai ? '/api/xai-chat' : '/api/chat';
+      const endpoint = useXai ? '/api/xai-chat' : '/api/chat/stream';
       const payload = useXai
         ? { prompt: userMessage.content }
         : {
@@ -190,6 +246,9 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
               role: msg.role,
               content: msg.content,
             })),
+            conversationId: conversationId || `conv_${Date.now()}`,
+            language: 'auto',
+            model: 'gpt-4',
             attachments: userMessage.attachments,
           };
 
@@ -228,6 +287,22 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
         const finalMessages = [...newMessages, assistantMessage];
         setMessages(finalMessages);
         saveConversationHistory(finalMessages);
+        
+        try {
+          await fetch('/api/analytics/realtime', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'request_success',
+              data: {
+                model: data.model || 'gpt-4',
+                responseTime: Date.now() - userMessage.timestamp.getTime(),
+              }
+            })
+          });
+        } catch (analyticsError) {
+          console.error('Analytics tracking error:', analyticsError);
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -239,6 +314,19 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
       const finalMessages = [...newMessages, errorMessage];
       setMessages(finalMessages);
       saveConversationHistory(finalMessages);
+      
+      try {
+        await fetch('/api/analytics/realtime', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'request_error',
+            data: { error: error instanceof Error ? error.message : 'Unknown error' }
+          })
+        });
+      } catch (analyticsError) {
+        console.error('Analytics tracking error:', analyticsError);
+      }
     } finally {
       setIsLoading(false);
       setIsTyping(false);

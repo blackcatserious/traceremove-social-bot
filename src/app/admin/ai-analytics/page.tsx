@@ -11,10 +11,26 @@ export default function AIAnalyticsPage() {
     filesProcessed: 456,
   });
 
+  const [realtimeMetrics, setRealtimeMetrics] = useState({
+    activeConversations: 0,
+    averageResponseTime: 0,
+    errorRate: 0,
+    modelUsage: {} as Record<string, number>,
+    totalRequests: 0,
+    successfulRequests: 0,
+  });
+
   useEffect(() => {
     checkNgrokStatus();
-    const interval = setInterval(checkNgrokStatus, 30000);
-    return () => clearInterval(interval);
+    fetchRealtimeMetrics();
+    
+    const ngrokInterval = setInterval(checkNgrokStatus, 30000);
+    const metricsInterval = setInterval(fetchRealtimeMetrics, 15000);
+    
+    return () => {
+      clearInterval(ngrokInterval);
+      clearInterval(metricsInterval);
+    };
   }, []);
 
   const checkNgrokStatus = async () => {
@@ -25,6 +41,18 @@ export default function AIAnalyticsPage() {
     } catch (error) {
       console.error('Failed to check ngrok status:', error);
       setNgrokStatus({ active: false });
+    }
+  };
+
+  const fetchRealtimeMetrics = async () => {
+    try {
+      const response = await fetch('/api/analytics/realtime');
+      if (response.ok) {
+        const data = await response.json();
+        setRealtimeMetrics(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch realtime metrics:', error);
     }
   };
 
@@ -63,8 +91,8 @@ export default function AIAnalyticsPage() {
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Total Conversations</p>
-              <p className="text-2xl font-bold text-white">{conversationStats.total.toLocaleString()}</p>
+              <p className="text-gray-400 text-sm">Active Conversations</p>
+              <p className="text-2xl font-bold text-white">{realtimeMetrics.activeConversations}</p>
             </div>
             <div className="text-blue-500">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
@@ -73,8 +101,7 @@ export default function AIAnalyticsPage() {
             </div>
           </div>
           <div className="mt-2">
-            <span className="text-green-500 text-sm">+12.5%</span>
-            <span className="text-gray-400 text-sm ml-1">from last week</span>
+            <span className="text-gray-400 text-sm">Real-time active chats</span>
           </div>
         </div>
 
@@ -82,7 +109,7 @@ export default function AIAnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-400 text-sm">Avg Response Time</p>
-              <p className="text-2xl font-bold text-white">{conversationStats.avgResponseTime}</p>
+              <p className="text-2xl font-bold text-white">{realtimeMetrics.averageResponseTime.toFixed(1)}s</p>
             </div>
             <div className="text-green-500">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
@@ -91,16 +118,19 @@ export default function AIAnalyticsPage() {
             </div>
           </div>
           <div className="mt-2">
-            <span className="text-green-500 text-sm">-0.4s</span>
-            <span className="text-gray-400 text-sm ml-1">improvement</span>
+            <span className="text-gray-400 text-sm">Current average</span>
           </div>
         </div>
 
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">User Satisfaction</p>
-              <p className="text-2xl font-bold text-white">{conversationStats.satisfaction}</p>
+              <p className="text-gray-400 text-sm">Success Rate</p>
+              <p className="text-2xl font-bold text-white">
+                {realtimeMetrics.totalRequests > 0 
+                  ? ((realtimeMetrics.successfulRequests / realtimeMetrics.totalRequests) * 100).toFixed(1)
+                  : '100.0'}%
+              </p>
             </div>
             <div className="text-yellow-500">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
@@ -109,16 +139,17 @@ export default function AIAnalyticsPage() {
             </div>
           </div>
           <div className="mt-2">
-            <span className="text-green-500 text-sm">+2.1%</span>
-            <span className="text-gray-400 text-sm ml-1">this month</span>
+            <span className="text-gray-400 text-sm">
+              {realtimeMetrics.successfulRequests}/{realtimeMetrics.totalRequests} requests
+            </span>
           </div>
         </div>
 
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Files Processed</p>
-              <p className="text-2xl font-bold text-white">{conversationStats.filesProcessed}</p>
+              <p className="text-gray-400 text-sm">Error Rate</p>
+              <p className="text-2xl font-bold text-white">{(realtimeMetrics.errorRate * 100).toFixed(1)}%</p>
             </div>
             <div className="text-purple-500">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
@@ -127,8 +158,7 @@ export default function AIAnalyticsPage() {
             </div>
           </div>
           <div className="mt-2">
-            <span className="text-green-500 text-sm">+18.7%</span>
-            <span className="text-gray-400 text-sm ml-1">file uploads</span>
+            <span className="text-gray-400 text-sm">Current error rate</span>
           </div>
         </div>
       </div>

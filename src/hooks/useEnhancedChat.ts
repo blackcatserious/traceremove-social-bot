@@ -16,13 +16,86 @@ interface ChatSettings {
   model: string;
   enableTypingIndicator: boolean;
   enableSuggestions: boolean;
+  template?: string;
 }
+
+interface ConversationTemplate {
+  id: string;
+  title: string;
+  systemPrompt: string;
+  starterQuestions: string[];
+  category: string;
+}
+
+const conversationTemplates: ConversationTemplate[] = [
+  {
+    id: 'project-planning',
+    title: 'Project Planning',
+    systemPrompt: 'You are a comprehensive project planning assistant. Help users create detailed project plans with timelines, resources, and deliverables. Focus on practical implementation and actionable steps.',
+    starterQuestions: [
+      'What type of project are you planning?',
+      'What are your main objectives?',
+      'What resources do you have available?',
+      'What is your timeline for completion?'
+    ],
+    category: 'Business'
+  },
+  {
+    id: 'content-creation',
+    title: 'Content Creation',
+    systemPrompt: 'You are a comprehensive content creation assistant. Help users develop content strategies, write engaging content, and optimize for different platforms. Focus on audience engagement and brand consistency.',
+    starterQuestions: [
+      'What type of content do you want to create?',
+      'Who is your target audience?',
+      'What platforms will you use?',
+      'What is your content goal?'
+    ],
+    category: 'Marketing'
+  },
+  {
+    id: 'technical-analysis',
+    title: 'Technical Analysis',
+    systemPrompt: 'You are a comprehensive technical analysis assistant. Help users analyze systems, code, and technical solutions with detailed insights. Focus on architecture, performance, and best practices.',
+    starterQuestions: [
+      'What system or technology do you want to analyze?',
+      'What specific aspects are you interested in?',
+      'What are your technical requirements?',
+      'What challenges are you facing?'
+    ],
+    category: 'Technology'
+  },
+  {
+    id: 'strategy-development',
+    title: 'Strategy Development',
+    systemPrompt: 'You are a comprehensive strategy development assistant. Help users create strategic plans, analyze market opportunities, and develop competitive advantages. Focus on actionable insights and measurable outcomes.',
+    starterQuestions: [
+      'What strategic challenge are you facing?',
+      'What is your current market position?',
+      'What are your key objectives?',
+      'What resources can you leverage?'
+    ],
+    category: 'Business'
+  },
+  {
+    id: 'research-analysis',
+    title: 'Research & Analysis',
+    systemPrompt: 'You are a comprehensive research and analysis assistant. Help users conduct thorough research, analyze data, and draw meaningful conclusions. Focus on evidence-based insights and comprehensive coverage.',
+    starterQuestions: [
+      'What topic do you want to research?',
+      'What specific questions need answers?',
+      'What type of analysis do you need?',
+      'How will you use these insights?'
+    ],
+    category: 'Research'
+  }
+];
 
 const defaultChatSettings: ChatSettings = {
   language: 'auto',
   model: 'gpt-4',
   enableTypingIndicator: true,
   enableSuggestions: true,
+  template: undefined,
 };
 
 function generateConversationId(): string {
@@ -88,6 +161,7 @@ export function useEnhancedChat() {
   const [settings, setSettings] = useState<ChatSettings>(defaultChatSettings);
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [suggestions, setSuggestions] = useState<Array<{ title: string; preview: string; relevance: number }>>([]);
 
   useEffect(() => {
     initializeChat();
@@ -127,12 +201,53 @@ export function useEnhancedChat() {
     exportConversation(conversationId, messages, settings);
   }, [conversationId, messages, settings]);
 
+  const switchTemplate = useCallback((templateId: string) => {
+    const template = conversationTemplates.find(t => t.id === templateId);
+    if (template) {
+      setSettings(prev => ({ ...prev, template: templateId }));
+      
+      const welcomeMessage: EnhancedMessage = {
+        id: `template_${Date.now()}`,
+        role: 'assistant',
+        content: `I've switched to **${template.title}** mode. ${template.starterQuestions.length > 0 ? `Here are some questions to get started:\n\n${template.starterQuestions.map(q => `• ${q}`).join('\n')}` : ''}`,
+        timestamp: new Date(),
+      };
+      
+      addMessage(welcomeMessage);
+    }
+  }, [addMessage]);
+
+  const getSuggestions = useCallback(async (query: string) => {
+    if (!settings.enableSuggestions || query.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/chat/suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestions(data.suggestions || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch suggestions:', error);
+      setSuggestions([]);
+    }
+  }, [settings.enableSuggestions]);
+
   return {
     messages,
     conversationId,
     settings,
     isLoading,
     isTyping,
+    suggestions,
+    conversationTemplates,
     setMessages,
     setSettings,
     setIsLoading,
@@ -141,5 +256,7 @@ export function useEnhancedChat() {
     clearConversation,
     exportCurrentConversation,
     saveConversation,
+    switchTemplate,
+    getSuggestions,
   };
 }
