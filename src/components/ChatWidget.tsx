@@ -36,6 +36,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
   const [chatTitle, setChatTitle] = useState('AI Assistant');
   const [chatSubtitle, setChatSubtitle] = useState('How can I help?');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [hasError, setHasError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +79,8 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
 
   const sendMessage = async () => {
     if ((!inputValue.trim() && !selectedFile) || isLoading) return;
+
+    setHasError(false);
 
     let attachments: Array<{ name: string; url: string; type: string }> = [];
     
@@ -156,14 +159,28 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setHasError(true);
+      
+      try {
+        const errorMessage: Message = {
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } catch (stateError) {
+        console.error('Error updating message state:', stateError);
+        setInputValue('');
+        setIsOpen(true);
+      }
     } finally {
       setIsLoading(false);
+      setTimeout(() => {
+        const textarea = document.querySelector('textarea[placeholder="Type your message..."]') as HTMLTextAreaElement;
+        if (textarea) {
+          textarea.focus();
+        }
+      }, 100);
     }
   };
 
@@ -179,7 +196,7 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
   };
 
   return (
-    <>
+    <div className="chat-widget">
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -188,9 +205,16 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
             exit={{ scale: 0, opacity: 0 }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full border-none shadow-xl cursor-pointer flex items-center justify-center z-50 backdrop-blur-sm"
+            onClick={() => {
+              setIsOpen(true);
+              setHasError(false);
+            }}
+            className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full border-none shadow-xl cursor-pointer flex items-center justify-center backdrop-blur-sm"
             style={{
+              zIndex: 9999,
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
               background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
               boxShadow: '0 10px 25px rgba(37, 99, 235, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1)'
             }}
@@ -219,8 +243,12 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.8, opacity: 0, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed bottom-6 right-6 w-96 h-[500px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-xl flex flex-col z-50 border border-gray-200"
+            className="fixed bottom-6 right-6 w-96 h-[500px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] bg-white rounded-2xl shadow-xl flex flex-col border border-gray-200"
             style={{
+              zIndex: 9999,
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
               boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)'
             }}
           >
@@ -465,6 +493,6 @@ export default function ChatWidget({ useXai = false }: ChatWidgetProps) {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }
