@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dotenv from 'dotenv';
-dotenv.config();
 import { xai } from '@ai-sdk/xai';
 import { streamText } from 'ai';
 
