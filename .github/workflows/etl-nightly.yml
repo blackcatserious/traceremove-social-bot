@@ -33,8 +33,11 @@ jobs:
           S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
           S3_BUCKET: traceremove-content
           QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
           UPSTASH_VECTOR_REST_URL: ${{ secrets.UPSTASH_VECTOR_REST_URL }}
           UPSTASH_VECTOR_REST_TOKEN: ${{ secrets.UPSTASH_VECTOR_REST_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           EMBEDDINGS_MODEL: text-embedding-3-large
           PUBLIC_MODE: 'true'
           FULL_SCAN: '1'
