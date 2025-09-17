@@ -151,7 +151,37 @@ export function getNotionClient(): NotionClient {
     }
     notionClient = new NotionClient({ 
       auth: config.notion.token,
-      timeoutMs: 30000,
+      timeoutMs: 60000, // Increased timeout for large database queries
+      fetch: async (url, options) => {
+        // Add retry logic at the fetch level
+        const maxRetries = 3;
+        let lastError;
+        
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            const response = await fetch(url, options);
+            
+            // Handle rate limiting gracefully
+            if (response.status === 429) {
+              const retryAfter = parseInt(response.headers.get('retry-after') || '5', 10);
+              console.log(`🚦 Notion rate limited, waiting ${retryAfter}s before retry ${i + 1}/${maxRetries}`);
+              await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+              continue;
+            }
+            
+            return response;
+          } catch (error) {
+            lastError = error;
+            if (i < maxRetries - 1) {
+              const delay = Math.pow(2, i) * 1000; // Exponential backoff
+              console.log(`🔄 Notion request failed, retrying in ${delay}ms (attempt ${i + 1}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          }
+        }
+        
+        throw lastError;
+      }
     });
   }
   return notionClient;
@@ -493,21 +523,41 @@ export async function incrementalSync(since?: Date): Promise<Record<string, any>
   
   console.log(`🔄 Starting incremental sync since ${sinceDate.toISOString()}...`);
   
+  // Light environment validation (less strict than full sync)
+  try {
+    if (!shouldMockExternalApis()) {
+      const config = getEnvironmentConfig();
+      if (!config?.notion.token) {
+        throw new Error('Notion API token not configured');
+      }
+    }
+  } catch (validationError) {
+    console.warn('⚠️ Environment validation warning:', validationError);
+    // Continue with incremental sync even if some validations fail
+  }
+  
   for (const dbConfig of NOTION_DATABASES) {
     const dbStartTime = Date.now();
     try {
       console.log(`📊 Checking ${dbConfig.name} for updates...`);
-      const notion = getNotionClient();
-      const response = await notion.databases.query({
-        database_id: dbConfig.id,
-        filter: {
-          property: 'Last edited time',
-          last_edited_time: {
-            after: sinceDate.toISOString(),
+      
+      const response = await withRetry(async () => {
+        if (shouldMockExternalApis()) {
+          return { results: [], has_more: false, next_cursor: null };
+        }
+        
+        const notion = getNotionClient();
+        return await notion.databases.query({
+          database_id: dbConfig.id,
+          filter: {
+            property: 'Last edited time',
+            last_edited_time: {
+              after: sinceDate.toISOString(),
+            },
           },
-        },
-        page_size: 100,
-      });
+          page_size: 100,
+        });
+      }, 3, 2000, 1.5); // 3 retries with exponential backoff
       
       if (response.results.length > 0) {
         console.log(`📥 Found ${response.results.length} updated records in ${dbConfig.name}`);
@@ -516,18 +566,27 @@ export async function incrementalSync(since?: Date): Promise<Record<string, any>
           transformNotionPage(page, dbConfig.mapping)
         );
         
-        await loadToPostgreSQL(transformedRecords, dbConfig.table, dbConfig.visibility);
+        await withRetry(() => 
+          loadToPostgreSQL(transformedRecords, dbConfig.table, dbConfig.visibility),
+          2, 1000
+        );
         
         let processedCount = 0;
         let errorCount = 0;
         
         for (const record of transformedRecords) {
           try {
-            await loadToS3(record, dbConfig.table);
-            await loadToVectorDB(record, dbConfig.table, dbConfig.visibility);
+            await Promise.all([
+              withRetry(() => loadToS3(record, dbConfig.table), 2, 1000),
+              withRetry(() => loadToVectorDB(record, dbConfig.table, dbConfig.visibility), 2, 1000)
+            ]);
             processedCount++;
           } catch (error) {
-            console.error(`❌ Failed to process record ${record.notion_id}:`, error);
+            console.error(`❌ Failed to process record ${record.notion_id}:`, {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              recordId: record.notion_id,
+              table: dbConfig.table
+            });
             errorCount++;
           }
         }

@@ -6,11 +6,12 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Shorter timeout for incremental sync
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'  # Updated to match nightly workflow
           cache: 'npm'
       - name: Install dependencies
         run: |
@@ -36,39 +37,82 @@ jobs:
           EMBEDDINGS_MODEL: text-embedding-3-large
           PUBLIC_MODE: 'true'
           PORT: 3000
+          NODE_ENV: production
         run: |
+          set -e  # Exit on any error
+          
           # Start the Next.js server in the background
+          echo "🚀 Starting Next.js server..."
           npm start &
           SERVER_PID=$!
           
-          # Wait for server to be ready
+          # Function to cleanup server
+          cleanup() {
+            echo "🧹 Cleaning up server (PID: $SERVER_PID)..."
+            kill $SERVER_PID 2>/dev/null || true
+            wait $SERVER_PID 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          
+          # Faster startup check for incremental sync (shorter timeout)
           echo "⏳ Waiting for server to start..."
-          for i in {1..30}; do
-            if curl -s http://localhost:3000/api/system/health > /dev/null; then
-              echo "✅ Server is ready"
+          MAX_ATTEMPTS=30  # 30 attempts should be sufficient for incremental
+          ATTEMPT=1
+          
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            if curl -s --max-time 3 http://localhost:3000/api/system/health > /dev/null; then
+              echo "✅ Server is ready (attempt $ATTEMPT)"
               break
             fi
-            if [ $i -eq 30 ]; then
-              echo "❌ Server failed to start within 30 seconds"
-              kill $SERVER_PID 2>/dev/null || true
+            
+            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+              echo "❌ Server failed to start within $MAX_ATTEMPTS seconds"
               exit 1
             fi
+            
+            echo "⏳ Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting 1s..."
             sleep 1
+            ATTEMPT=$((ATTEMPT + 1))
           done
           
-          # Run the ETL
-          echo "🚀 Running incremental ETL sync..."
-          RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/etl_response.json http://localhost:3000/api/etl/incremental)
+          # Run the incremental ETL
+          echo "🔄 Running incremental ETL sync..."
           
-          if [ "$RESPONSE" -eq 200 ]; then
-            echo "✅ ETL completed successfully"
-            cat /tmp/etl_response.json
+          # Use shorter timeout for incremental sync
+          timeout 300 curl -s -w "%{http_code}" -o /tmp/etl_response.json \
+            --max-time 300 \
+            --retry 1 \
+            --retry-delay 10 \
+            --retry-max-time 60 \
+            http://localhost:3000/api/etl/incremental || ETL_EXIT_CODE=$?
+          
+          ETL_HTTP_CODE=$(cat /tmp/etl_response.json | tail -n1 2>/dev/null || echo "000")
+          ETL_RESPONSE=$(cat /tmp/etl_response.json 2>/dev/null || echo "{}")
+          
+          echo "📊 ETL Response Code: $ETL_HTTP_CODE"
+          echo "📄 ETL Response:"
+          echo "$ETL_RESPONSE" | jq '.' 2>/dev/null || echo "$ETL_RESPONSE"
+          
+          # Evaluate results
+          if [ "$ETL_HTTP_CODE" = "200" ]; then
+            echo "✅ Incremental ETL completed successfully"
+            
+            # Extract statistics for reporting
+            TOTAL_UPDATED=$(echo "$ETL_RESPONSE" | jq -r '.results._summary.totalUpdated // 0' 2>/dev/null || echo "0")
+            TOTAL_PROCESSED=$(echo "$ETL_RESPONSE" | jq -r '.results._summary.totalProcessed // 0' 2>/dev/null || echo "0")
+            TOTAL_ERRORS=$(echo "$ETL_RESPONSE" | jq -r '.results._summary.totalErrors // 0' 2>/dev/null || echo "0")
+            
+            echo "📊 Summary: $TOTAL_PROCESSED/$TOTAL_UPDATED records processed with $TOTAL_ERRORS errors"
           else
-            echo "❌ ETL failed with HTTP $RESPONSE"
-            cat /tmp/etl_response.json
-            kill $SERVER_PID 2>/dev/null || true
+            echo "❌ Incremental ETL failed with HTTP $ETL_HTTP_CODE"
+            
+            # For incremental sync, we can be more lenient with certain types of failures
+            ERROR_TYPE=$(echo "$ETL_RESPONSE" | jq -r '.errorType // "unknown"' 2>/dev/null || echo "unknown")
+            
+            if [ "$ERROR_TYPE" = "timeout" ] || [ "$ERROR_TYPE" = "rate_limit" ]; then
+              echo "⚠️ Transient error detected ($ERROR_TYPE) - incremental sync can retry on next run"
+              exit 0  # Don't fail the workflow for transient errors in incremental sync
+            fi
+            
             exit 1
           fi
-          
-          # Clean up
-          kill $SERVER_PID 2>/dev/null || true
