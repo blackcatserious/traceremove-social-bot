@@ -3,7 +3,56 @@ import { query, CatalogRecord, CaseRecord, PublishingRecord, FinanceRecord } fro
 import { uploadFile, generateContentKey } from '../storage';
 import { embedText, getVectorIndex } from '../rag';
 import { getEnvironmentConfig, shouldMockExternalApis } from '../env-validation';
-import { withRetry, ExternalServiceError, DatabaseError } from '../error-handling';
+import { withRetry, ExternalServiceError, DatabaseError, CircuitBreaker } from '../error-handling';
+
+// ETL environment validation function
+async function validateETLEnvironment(): Promise<void> {
+  const errors: string[] = [];
+  
+  try {
+    // Validate configuration
+    const config = getEnvironmentConfig();
+    if (!config) {
+      errors.push('Environment configuration not available');
+    }
+    
+    // Validate database connection
+    try {
+      const { getPool } = await import('../database');
+      const pool = getPool();
+      const client = await pool.connect();
+      await client.query('SELECT 1');
+      client.release();
+    } catch (dbError) {
+      errors.push(`Database connection failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+    }
+    
+    // Validate Notion access
+    if (!shouldMockExternalApis()) {
+      try {
+        const notion = getNotionClient();
+        await notion.users.me({});
+      } catch (notionError) {
+        errors.push(`Notion API access failed: ${notionError instanceof Error ? notionError.message : 'Unknown error'}`);
+      }
+    }
+    
+    // Validate required environment variables for ETL
+    const requiredEnvVars = ['NOTION_TOKEN', 'PG_DSN'];
+    for (const envVar of requiredEnvVars) {
+      if (!process.env[envVar] || process.env[envVar]?.includes('placeholder')) {
+        errors.push(`Required environment variable ${envVar} is not properly configured`);
+      }
+    }
+    
+  } catch (error) {
+    errors.push(`Environment validation error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+  
+  if (errors.length > 0) {
+    throw new Error(`ETL environment validation failed: ${errors.join('; ')}`);
+  }
+}
 
 export interface NotionDatabaseConfig {
   id: string;
@@ -113,42 +162,79 @@ export async function extractFromNotion(databaseConfig: NotionDatabaseConfig): P
   const allPages: any[] = [];
   let cursor: string | undefined;
   let pageCount = 0;
+  let requestCount = 0;
+  const startTime = Date.now();
   
-  console.log(`Extracting from ${databaseConfig.name} database (${databaseConfig.id})...`);
+  console.log(`📥 Extracting from ${databaseConfig.name} database (${databaseConfig.id})...`);
+  
+  // Circuit breaker for Notion API calls
+  const circuitBreaker = new CircuitBreaker(3, 30000); // 3 failures, 30s timeout
   
   do {
     try {
-      const response = await withRetry(async () => {
-        if (shouldMockExternalApis()) {
-          return {
-            results: [],
-            next_cursor: null,
-            has_more: false,
-          };
-        }
+      requestCount++;
+      const requestStart = Date.now();
+      
+      const response = await circuitBreaker.execute(() => 
+        withRetry(async () => {
+          if (shouldMockExternalApis()) {
+            return {
+              results: [],
+              next_cursor: null,
+              has_more: false,
+            };
+          }
 
-        return await notion.databases.query({
-          database_id: databaseConfig.id,
-          start_cursor: cursor,
-          page_size: 100,
-        });
-      }, 3);
+          try {
+            return await notion.databases.query({
+              database_id: databaseConfig.id,
+              start_cursor: cursor,
+              page_size: 100,
+            });
+          } catch (apiError: any) {
+            if (apiError?.code === 'rate_limited') {
+              console.log(`⏳ Rate limited on ${databaseConfig.name}, waiting before retry...`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              throw new ExternalServiceError('Notion', 'Rate limited - will retry');
+            }
+            throw apiError;
+          }
+        }, 5, 2000, 1.5) // 5 retries, starting at 2s delay, 1.5x backoff
+      );
+      
+      const requestTime = Date.now() - requestStart;
       
       allPages.push(...response.results);
       cursor = response.next_cursor || undefined;
       pageCount += response.results.length;
       
-      if (pageCount % 100 === 0) {
-        console.log(`Extracted ${pageCount} pages from ${databaseConfig.name}...`);
+      if (pageCount % 100 === 0 || requestTime > 5000) {
+        console.log(`📊 ${databaseConfig.name}: ${pageCount} pages extracted (${requestCount} requests, last request: ${requestTime}ms)`);
+      }
+      
+      // Rate limiting: wait between requests to avoid hitting limits
+      if (!shouldMockExternalApis() && requestTime < 100) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
     } catch (error) {
-      console.error(`Failed to extract from ${databaseConfig.name}:`, error);
+      const extractionTime = Date.now() - startTime;
+      console.error(`💥 Failed to extract from ${databaseConfig.name}:`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        pageCount,
+        requestCount,
+        extractionTime,
+        database: databaseConfig.name,
+        circuitBreakerState: circuitBreaker.getState()
+      });
+      
       throw new ExternalServiceError('Notion', `Extraction failed for ${databaseConfig.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   } while (cursor);
   
-  console.log(`Completed extraction: ${allPages.length} pages from ${databaseConfig.name}`);
+  const totalTime = Date.now() - startTime;
+  console.log(`✅ Extraction complete: ${allPages.length} pages from ${databaseConfig.name} in ${totalTime}ms (${Math.round(allPages.length / totalTime * 1000)} pages/sec)`);
+  
   return allPages;
 }
 
@@ -496,17 +582,97 @@ export async function incrementalSync(since?: Date): Promise<Record<string, any>
 }
 
 export async function fullSync(): Promise<Record<string, any>> {
+  const startTime = Date.now();
   const results: Record<string, any> = {};
+  let totalExtracted = 0;
+  let totalLoaded = 0;
+  let totalErrors = 0;
+  let successfulDatabases = 0;
+  let failedDatabases = 0;
+  
+  console.log(`🚀 Starting full ETL sync for ${NOTION_DATABASES.length} databases...`);
+  
+  // Pre-flight environment validation
+  try {
+    await validateETLEnvironment();
+  } catch (error) {
+    console.error('❌ Pre-flight validation failed:', error);
+    return {
+      _summary: {
+        status: 'failed',
+        error: 'Environment validation failed',
+        details: error instanceof Error ? error.message : 'Unknown validation error',
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - startTime
+      }
+    };
+  }
   
   for (const dbConfig of NOTION_DATABASES) {
+    const dbStartTime = Date.now();
     try {
+      console.log(`📊 Processing database: ${dbConfig.name} (${dbConfig.table})`);
       const result = await syncDatabase(dbConfig);
-      results[dbConfig.name] = result;
+      results[dbConfig.name] = {
+        ...result,
+        duration: Date.now() - dbStartTime,
+        status: 'success'
+      };
+      
+      totalExtracted += result.extracted || 0;
+      totalLoaded += result.loaded || 0;
+      totalErrors += result.errors || 0;
+      successfulDatabases++;
+      
+      console.log(`✅ ${dbConfig.name} completed: ${result.loaded}/${result.extracted} records processed with ${result.errors} errors`);
+      
     } catch (error) {
-      console.error(`Full sync failed for ${dbConfig.name}:`, error);
-      results[dbConfig.name] = { error: error instanceof Error ? error.message : 'Unknown error' };
+      const dbDuration = Date.now() - dbStartTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      console.error(`💥 Full sync failed for ${dbConfig.name}:`, {
+        error: errorMessage,
+        stack: errorStack,
+        duration: dbDuration,
+        database: dbConfig.name,
+        table: dbConfig.table
+      });
+      
+      results[dbConfig.name] = { 
+        error: errorMessage,
+        duration: dbDuration,
+        status: 'failed',
+        database: dbConfig.name,
+        table: dbConfig.table,
+        timestamp: new Date().toISOString()
+      };
+      
+      failedDatabases++;
     }
   }
+  
+  const totalDuration = Date.now() - startTime;
+  const overallStatus = failedDatabases === 0 ? 'success' : (successfulDatabases > 0 ? 'partial' : 'failed');
+  
+  console.log(`🎯 Full sync completed: ${successfulDatabases}/${NOTION_DATABASES.length} databases successful`);
+  console.log(`📈 Total: ${totalLoaded}/${totalExtracted} records processed with ${totalErrors} errors in ${totalDuration}ms`);
+  
+  results._summary = {
+    status: overallStatus,
+    totalDatabases: NOTION_DATABASES.length,
+    successfulDatabases,
+    failedDatabases,
+    totalExtracted,
+    totalLoaded,
+    totalErrors,
+    duration: totalDuration,
+    timestamp: new Date().toISOString(),
+    performance: {
+      recordsPerSecond: totalDuration > 0 ? Math.round((totalLoaded / totalDuration) * 1000) : 0,
+      averageDbTime: NOTION_DATABASES.length > 0 ? Math.round(totalDuration / NOTION_DATABASES.length) : 0
+    }
+  };
   
   return results;
 }
