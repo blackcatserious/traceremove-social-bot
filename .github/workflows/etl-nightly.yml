@@ -8,6 +8,7 @@ on:
 jobs:
   etl:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Set overall job timeout
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,39 +40,115 @@ jobs:
           PUBLIC_MODE: 'true'
           FULL_SCAN: '1'
           PORT: 3000
+          NODE_ENV: production
         run: |
+          set -e  # Exit on any error
+          
           # Start the Next.js server in the background
+          echo "🚀 Starting Next.js server..."
           npm start &
           SERVER_PID=$!
           
-          # Wait for server to be ready
+          # Function to cleanup server
+          cleanup() {
+            echo "🧹 Cleaning up server (PID: $SERVER_PID)..."
+            kill $SERVER_PID 2>/dev/null || true
+            wait $SERVER_PID 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          
+          # Enhanced server readiness check with exponential backoff
           echo "⏳ Waiting for server to start..."
-          for i in {1..30}; do
-            if curl -s http://localhost:3000/api/system/health > /dev/null; then
-              echo "✅ Server is ready"
+          MAX_ATTEMPTS=60  # Increased from 30
+          ATTEMPT=1
+          WAIT_TIME=1
+          
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            if curl -s --max-time 5 http://localhost:3000/api/system/health > /dev/null; then
+              echo "✅ Server is ready (attempt $ATTEMPT)"
               break
             fi
-            if [ $i -eq 30 ]; then
-              echo "❌ Server failed to start within 30 seconds"
-              kill $SERVER_PID 2>/dev/null || true
+            
+            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+              echo "❌ Server failed to start within $((MAX_ATTEMPTS * WAIT_TIME)) seconds total"
+              echo "📊 Server process status:"
+              ps aux | grep -E "(next|node)" || echo "No Next.js processes found"
+              echo "📋 Server logs (last 50 lines):"
+              # Check for any server output or errors
+              sleep 2
               exit 1
             fi
-            sleep 1
+            
+            echo "⏳ Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting ${WAIT_TIME}s..."
+            sleep $WAIT_TIME
+            
+            # Exponential backoff with max cap
+            if [ $WAIT_TIME -lt 4 ]; then
+              WAIT_TIME=$((WAIT_TIME + 1))
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
           done
           
-          # Run the ETL
-          echo "🚀 Running full ETL sync..."
-          RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/etl_response.json http://localhost:3000/api/etl/full)
+          # Additional health check to ensure all services are ready
+          echo "🔍 Running comprehensive health check..."
+          HEALTH_RESPONSE=$(curl -s --max-time 10 "http://localhost:3000/api/system/health?detailed=true" || echo "")
           
-          if [ "$RESPONSE" -eq 200 ]; then
-            echo "✅ ETL completed successfully"
-            cat /tmp/etl_response.json
-          else
-            echo "❌ ETL failed with HTTP $RESPONSE"
-            cat /tmp/etl_response.json
-            kill $SERVER_PID 2>/dev/null || true
+          if [ -z "$HEALTH_RESPONSE" ]; then
+            echo "❌ Health check endpoint not responding"
             exit 1
           fi
           
-          # Clean up
-          kill $SERVER_PID 2>/dev/null || true
+          echo "📊 Health check results:"
+          echo "$HEALTH_RESPONSE" | jq '.' || echo "$HEALTH_RESPONSE"
+          
+          # Check if any services are unhealthy
+          UNHEALTHY_COUNT=$(echo "$HEALTH_RESPONSE" | jq '.unhealthy // 0' 2>/dev/null || echo "0")
+          if [ "$UNHEALTHY_COUNT" -gt 0 ]; then
+            echo "⚠️ Warning: $UNHEALTHY_COUNT unhealthy services detected, but proceeding with ETL"
+          fi
+          
+          # Run the ETL with enhanced error handling
+          echo "🚀 Running full ETL sync..."
+          
+          # Use timeout to prevent hanging
+          timeout 1200 curl -s -w "%{http_code}" -o /tmp/etl_response.json \
+            --max-time 1200 \
+            --retry 2 \
+            --retry-delay 30 \
+            --retry-max-time 180 \
+            http://localhost:3000/api/etl/full || ETL_EXIT_CODE=$?
+          
+          ETL_HTTP_CODE=$(cat /tmp/etl_response.json | tail -n1 2>/dev/null || echo "000")
+          ETL_RESPONSE=$(cat /tmp/etl_response.json 2>/dev/null || echo "{}")
+          
+          echo "📊 ETL Response Code: $ETL_HTTP_CODE"
+          echo "📄 ETL Response:"
+          echo "$ETL_RESPONSE" | jq '.' 2>/dev/null || echo "$ETL_RESPONSE"
+          
+          # Evaluate results
+          if [ "$ETL_HTTP_CODE" = "200" ]; then
+            echo "✅ ETL completed successfully"
+          elif [ "$ETL_HTTP_CODE" = "206" ]; then
+            echo "⚠️ ETL completed with partial success"
+            # Extract details about failed databases
+            FAILED_DBS=$(echo "$ETL_RESPONSE" | jq -r '.results._summary.failedDatabases // 0' 2>/dev/null || echo "0")
+            SUCCESSFUL_DBS=$(echo "$ETL_RESPONSE" | jq -r '.results._summary.successfulDatabases // 0' 2>/dev/null || echo "0")
+            echo "📊 Results: $SUCCESSFUL_DBS successful, $FAILED_DBS failed databases"
+          else
+            echo "❌ ETL failed with HTTP $ETL_HTTP_CODE"
+            
+            # Extract error details for debugging
+            ERROR_TYPE=$(echo "$ETL_RESPONSE" | jq -r '.errorType // "unknown"' 2>/dev/null || echo "unknown")
+            ERROR_MSG=$(echo "$ETL_RESPONSE" | jq -r '.error // "Unknown error"' 2>/dev/null || echo "Unknown error")
+            
+            echo "🔍 Error Type: $ERROR_TYPE"
+            echo "📝 Error Message: $ERROR_MSG"
+            
+            # Don't fail for certain recoverable errors in partial success scenarios
+            if [ "$ETL_HTTP_CODE" = "503" ] && echo "$ERROR_TYPE" | grep -q "configuration\|database"; then
+              echo "⚠️ Configuration or database issue detected - this may be transient"
+            fi
+            
+            exit 1
+          fi

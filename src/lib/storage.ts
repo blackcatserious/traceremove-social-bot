@@ -78,3 +78,47 @@ export function generateContentKey(notionId: string, type: 'markdown' | 'attachm
     return `attachments/${timestamp}/${notionId}/${filename || 'file'}`;
   }
 }
+
+export async function testStorageConnection(): Promise<void> {
+  const bucket = process.env.S3_BUCKET || 'traceremove-content';
+  const client = getS3Client();
+  
+  // Test with a simple health check file
+  const testKey = `health-check/${Date.now()}.txt`;
+  const testContent = 'S3 health check';
+  
+  try {
+    // Test upload
+    const uploadCommand = new PutObjectCommand({
+      Bucket: bucket,
+      Key: testKey,
+      Body: testContent,
+      ContentType: 'text/plain',
+    });
+    await client.send(uploadCommand);
+    
+    // Test download to verify the file was uploaded
+    const downloadCommand = new GetObjectCommand({
+      Bucket: bucket,
+      Key: testKey,
+    });
+    const response = await client.send(downloadCommand);
+    
+    if (!response.Body) {
+      throw new Error('S3 health check file upload/download failed');
+    }
+    
+    // Clean up test file
+    const deleteCommand = new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: testKey,
+    });
+    await client.send(deleteCommand);
+    
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('NoSuchBucket')) {
+      throw new Error(`S3 bucket '${bucket}' does not exist or is not accessible`);
+    }
+    throw error;
+  }
+}

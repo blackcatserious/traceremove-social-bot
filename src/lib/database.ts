@@ -13,12 +13,20 @@ export function getPool(): Pool {
       connectionString,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 5000, // Increased from 2000ms
       ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
     });
     
     pool.on('error', (err) => {
       console.error('PostgreSQL pool error:', err);
+    });
+    
+    pool.on('connect', (client) => {
+      console.log('New database client connected');
+    });
+    
+    pool.on('remove', (client) => {
+      console.log('Database client removed from pool');
     });
   }
   return pool;
