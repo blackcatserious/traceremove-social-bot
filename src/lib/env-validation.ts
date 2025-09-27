@@ -149,10 +149,39 @@ const RELAXED_PLACEHOLDERS: Record<string, string> = {
   CRON_SECRET: 'placeholder-cron-secret',
 };
 
+const SECRET_KEYWORDS = ['TOKEN', 'SECRET', 'KEY', 'PASSWORD', 'DSN', 'ACCESS', 'WEBHOOK', 'URL', 'ENDPOINT'];
+
+const PLACEHOLDER_INDICATORS: Array<{ pattern: RegExp; description: string }> = [
+  { pattern: /changeme/i, description: '"changeme" placeholder text' },
+  { pattern: /change[-_ ]?me/i, description: '"change me" placeholder text' },
+  { pattern: /replace[-_ ]?me/i, description: '"replace me" placeholder text' },
+  { pattern: /placeholder/i, description: '"placeholder" marker' },
+  { pattern: /dummy/i, description: '"dummy" marker' },
+  { pattern: /set[-_ ]?me/i, description: '"set me" placeholder text' },
+  { pattern: /todo/i, description: '"todo" marker' },
+  { pattern: /tbd/i, description: '"TBD" marker' },
+  { pattern: /your[-_ ]/i, description: '"your-..." placeholder text' },
+  { pattern: /xxxxx+/i, description: '"xxxxx" placeholder characters' },
+];
+
 function isTruthy(value?: string): boolean {
   if (!value) return false;
   const normalized = value.toLowerCase();
   return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+}
+
+function shouldInspectForPlaceholder(key: string): boolean {
+  const upperKey = key.toUpperCase();
+  return SECRET_KEYWORDS.some((keyword) => upperKey.includes(keyword));
+}
+
+function detectPlaceholderIndicator(value: string): string | undefined {
+  for (const indicator of PLACEHOLDER_INDICATORS) {
+    if (indicator.pattern.test(value)) {
+      return indicator.description;
+    }
+  }
+  return undefined;
 }
 
 export type EnvSource = NodeJS.ProcessEnv;
@@ -199,6 +228,7 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
   const missingVars: string[] = [];
   const warnings: string[] = [];
   const placeholdersUsed: string[] = [];
+  const placeholderWarnings = new Set<string>();
   const enforcementRequested = isTruthy(env.ENFORCE_ENV_VALIDATION);
   const skipRequested = isTruthy(env.SKIP_ENV_VALIDATION);
   const runningInCi = isTruthy(env.CI) || isTruthy(env.VERCEL_CI);
@@ -245,6 +275,21 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     }
   }
 
+  function warnIfPlaceholder(key: string, value?: string): void {
+    if (!value || !shouldInspectForPlaceholder(key)) {
+      return;
+    }
+    const match = detectPlaceholderIndicator(value);
+    if (!match) {
+      return;
+    }
+    if (placeholderWarnings.has(key)) {
+      return;
+    }
+    placeholderWarnings.add(key);
+    warnings.push(`Potential placeholder value detected for ${key} (${match}). Replace it with the real secret before deploying.`);
+  }
+
   function getRequired(key: string, fallback?: string): string {
     const value = env[key];
     if (!value) {
@@ -263,12 +308,17 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
       }
       return resolvedFallback;
     }
+    warnIfPlaceholder(key, value);
     return value;
   }
 
   function getOptional(key: string): string | undefined {
     const value = env[key];
-    return value && value !== '' ? value : undefined;
+    if (value && value !== '') {
+      warnIfPlaceholder(key, value);
+      return value;
+    }
+    return undefined;
   }
 
   function getOptionalNumber(key: string, defaultValue?: number): number | undefined {
