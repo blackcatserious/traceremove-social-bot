@@ -7,7 +7,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const validation = getEnvironmentValidationSummary();
-    
+
+    const integrationStatus = new Map(validation.integrations.map((entry) => [entry.key, entry]));
+    const requiredIntegrationStatus = (key: string): 'operational' | 'unavailable' => {
+      const integration = integrationStatus.get(key);
+      if (!integration) {
+        return 'operational';
+      }
+      return integration.status === 'ready' ? 'operational' : 'unavailable';
+    };
+
     const systemStatus = {
       status: validation.valid ? 'operational' : 'degraded',
       timestamp: new Date().toISOString(),
@@ -17,13 +26,14 @@ export async function GET(request: NextRequest) {
         warnings: validation.warnings,
         mode: validation.mode.type,
         reason: validation.mode.type === 'relaxed' ? validation.mode.reason : undefined,
+        integrations: validation.integrations,
       },
       services: {
         api: 'operational',
-        database: validation.missing.includes('PG_DSN') ? 'unavailable' : 'operational',
-        vector: validation.missing.includes('UPSTASH_VECTOR_REST_URL') ? 'unavailable' : 'operational',
-        ai: validation.missing.includes('OPENAI_API_KEY') ? 'unavailable' : 'operational',
-        notion: validation.missing.includes('NOTION_TOKEN') ? 'unavailable' : 'operational',
+        database: requiredIntegrationStatus('database'),
+        vector: requiredIntegrationStatus('vector'),
+        ai: requiredIntegrationStatus('openai'),
+        notion: requiredIntegrationStatus('notion'),
       },
       version: process.env.npm_package_version || '1.0.0',
       uptime: process.uptime(),

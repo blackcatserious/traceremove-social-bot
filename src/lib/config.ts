@@ -1,4 +1,9 @@
-import { getEnvironmentConfig, getEnvironmentValidationSummary, type EnvironmentConfig } from './env-validation';
+import {
+  getEnvironmentConfig,
+  getEnvironmentValidationSummary,
+  type EnvironmentConfig,
+  type IntegrationSummaryEntry,
+} from './env-validation';
 
 export type { EnvironmentConfig };
 
@@ -8,6 +13,7 @@ export function validateEnvironment(): {
   warnings: string[];
   mode: string;
   reason?: string;
+  integrations: IntegrationSummaryEntry[];
 } {
   const summary = getEnvironmentValidationSummary();
   return {
@@ -16,6 +22,7 @@ export function validateEnvironment(): {
     warnings: summary.warnings,
     mode: summary.mode.type,
     reason: summary.mode.type === 'relaxed' ? summary.mode.reason : undefined,
+    integrations: summary.integrations,
   };
 }
 

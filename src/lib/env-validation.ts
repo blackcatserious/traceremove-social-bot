@@ -121,6 +121,19 @@ export interface EnvironmentValidationResult {
   warnings: string[];
   mode: ValidationMode;
   placeholders: string[];
+  integrations: IntegrationSummaryEntry[];
+}
+
+export type IntegrationStatus = 'ready' | 'partial' | 'missing' | 'placeholder';
+
+export interface IntegrationSummaryEntry {
+  key: string;
+  label: string;
+  status: IntegrationStatus;
+  optional: boolean;
+  missing: string[];
+  placeholders: string[];
+  provided: string[];
 }
 
 export class EnvironmentValidationError extends Error {
@@ -256,6 +269,7 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
   const warnings: string[] = [];
   const placeholdersUsed: string[] = [];
   const placeholderWarnings = new Set<string>();
+  const integrations: IntegrationSummaryEntry[] = [];
   const enforcementRequested = isTruthy(env.ENFORCE_ENV_VALIDATION);
   const skipRequested = isTruthy(env.SKIP_ENV_VALIDATION);
   const runningInCi = isTruthy(env.CI) || isTruthy(env.VERCEL_CI);
@@ -315,6 +329,43 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     }
     placeholderWarnings.add(key);
     warnings.push(`Potential placeholder value detected for ${key} (${match}). Replace it with the real secret before deploying.`);
+  }
+
+  function evaluateIntegration(
+    key: string,
+    label: string,
+    requiredKeys: string[],
+    options: { optional?: boolean } = {}
+  ): void {
+    const optional = options.optional ?? false;
+    const presentKeys = requiredKeys.filter((envKey) => {
+      const raw = env[envKey];
+      return typeof raw === 'string' && raw.trim().length > 0;
+    });
+    const missing = requiredKeys.filter((envKey) => !presentKeys.includes(envKey));
+    const placeholderKeys = requiredKeys.filter((envKey) => placeholderWarnings.has(envKey));
+    const provided = presentKeys.filter((envKey) => !placeholderWarnings.has(envKey));
+
+    let status: IntegrationStatus;
+    if (missing.length === 0 && placeholderKeys.length === 0) {
+      status = 'ready';
+    } else if (presentKeys.length === 0) {
+      status = 'missing';
+    } else if (missing.length === 0 && placeholderKeys.length === presentKeys.length) {
+      status = 'placeholder';
+    } else {
+      status = 'partial';
+    }
+
+    integrations.push({
+      key,
+      label,
+      status,
+      optional,
+      missing,
+      placeholders: placeholderKeys.filter((envKey) => !missing.includes(envKey)),
+      provided,
+    });
   }
 
   function getRequired(key: string, fallback?: string): string {
@@ -593,7 +644,58 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     },
   };
 
-  return { config, missing: missingVars, warnings, mode, placeholders: placeholdersUsed };
+  evaluateIntegration('notion', 'Notion content databases', [
+    'NOTION_TOKEN',
+    'NOTION_DB_REGISTRY',
+    'NOTION_DB_CASES',
+    'NOTION_DB_FINANCE',
+    'NOTION_DB_PUBLISHING',
+  ]);
+  evaluateIntegration('database', 'Postgres database', ['PG_DSN']);
+  evaluateIntegration('openai', 'OpenAI API', ['OPENAI_API_KEY']);
+  evaluateIntegration('vector', 'Upstash Vector', [
+    'UPSTASH_VECTOR_REST_URL',
+    'UPSTASH_VECTOR_REST_TOKEN',
+  ]);
+  evaluateIntegration('security', 'Admin security tokens', ['ADMIN_TOKEN', 'CRON_SECRET']);
+  evaluateIntegration(
+    'storage',
+    'S3 object storage',
+    ['S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'cache',
+    'Upstash Redis cache',
+    ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'slack',
+    'Slack alerts',
+    ['SLACK_SIGNING_SECRET', 'SLACK_BOT_TOKEN'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'twitter',
+    'X / Twitter publishing',
+    ['TWITTER_APP_KEY', 'TWITTER_APP_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_SECRET'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'facebook',
+    'Facebook publishing',
+    ['FB_PAGE_ID', 'FB_ACCESS_TOKEN'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'instagram',
+    'Instagram publishing',
+    ['IG_BUSINESS_ACCOUNT_ID', 'IG_ACCESS_TOKEN'],
+    { optional: true }
+  );
+
+  return { config, missing: missingVars, warnings, mode, placeholders: placeholdersUsed, integrations };
 }
 
 export function validateEnvironment(env: EnvSource = process.env): EnvironmentConfig {
@@ -632,6 +734,7 @@ export function getEnvironmentValidationSummary(env: EnvSource = process.env): {
   warnings: string[];
   mode: ValidationMode;
   placeholders: string[];
+  integrations: IntegrationSummaryEntry[];
 } {
   const result = performEnvironmentValidation(env);
   return {
@@ -640,6 +743,7 @@ export function getEnvironmentValidationSummary(env: EnvSource = process.env): {
     warnings: result.warnings,
     mode: result.mode,
     placeholders: result.placeholders,
+    integrations: result.integrations,
   };
 }
 
