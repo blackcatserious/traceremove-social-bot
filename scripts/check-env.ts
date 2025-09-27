@@ -239,6 +239,7 @@ function outputJson(summary: ReturnType<typeof getEnvironmentValidationSummary>,
     missing: summary.missing,
     placeholdersUsed: summary.placeholders,
     integrations: summary.integrations,
+    integrationStats: summary.integrationStats,
     loadedEnvFiles: loadedFiles,
   };
   console.log(JSON.stringify(payload, null, 2));
@@ -287,6 +288,14 @@ function outputHuman(summary: ReturnType<typeof getEnvironmentValidationSummary>
       const noteText = notes.length > 0 ? ` — ${notes.join('; ')}` : '';
       console.log(`  • ${integration.label}${optionalLabel}: ${statusLabel}${noteText}`);
     }
+
+    const stats = summary.integrationStats;
+    console.log(
+      `\nSummary: ${stats.ready}/${stats.total} ready, ${stats.partial} partial, ${stats.missing} missing, ${stats.placeholder} placeholder-only`
+    );
+    console.log(
+      `Required integrations ready: ${stats.requiredReady}/${stats.requiredTotal}. Optional integrations ready: ${stats.optionalReady}/${stats.optionalTotal}.`
+    );
   }
 
   if (summary.placeholders.length > 0) {

@@ -115,6 +115,18 @@ export interface EnvironmentConfig {
   };
 }
 
+export interface IntegrationReadinessStats {
+  total: number;
+  ready: number;
+  partial: number;
+  missing: number;
+  placeholder: number;
+  requiredTotal: number;
+  requiredReady: number;
+  optionalTotal: number;
+  optionalReady: number;
+}
+
 export interface EnvironmentValidationResult {
   config: EnvironmentConfig;
   missing: string[];
@@ -122,6 +134,7 @@ export interface EnvironmentValidationResult {
   mode: ValidationMode;
   placeholders: string[];
   integrations: IntegrationSummaryEntry[];
+  integrationStats: IntegrationReadinessStats;
 }
 
 export type IntegrationStatus = 'ready' | 'partial' | 'missing' | 'placeholder';
@@ -695,7 +708,45 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     { optional: true }
   );
 
-  return { config, missing: missingVars, warnings, mode, placeholders: placeholdersUsed, integrations };
+  const integrationStats = integrations.reduce<IntegrationReadinessStats>(
+    (acc, integration) => {
+      acc.total += 1;
+      acc[integration.status] += 1;
+      if (integration.optional) {
+        acc.optionalTotal += 1;
+        if (integration.status === 'ready') {
+          acc.optionalReady += 1;
+        }
+      } else {
+        acc.requiredTotal += 1;
+        if (integration.status === 'ready') {
+          acc.requiredReady += 1;
+        }
+      }
+      return acc;
+    },
+    {
+      total: 0,
+      ready: 0,
+      partial: 0,
+      missing: 0,
+      placeholder: 0,
+      requiredTotal: 0,
+      requiredReady: 0,
+      optionalTotal: 0,
+      optionalReady: 0,
+    }
+  );
+
+  return {
+    config,
+    missing: missingVars,
+    warnings,
+    mode,
+    placeholders: placeholdersUsed,
+    integrations,
+    integrationStats,
+  };
 }
 
 export function validateEnvironment(env: EnvSource = process.env): EnvironmentConfig {
@@ -735,6 +786,7 @@ export function getEnvironmentValidationSummary(env: EnvSource = process.env): {
   mode: ValidationMode;
   placeholders: string[];
   integrations: IntegrationSummaryEntry[];
+  integrationStats: IntegrationReadinessStats;
 } {
   const result = performEnvironmentValidation(env);
   return {
@@ -744,6 +796,7 @@ export function getEnvironmentValidationSummary(env: EnvSource = process.env): {
     mode: result.mode,
     placeholders: result.placeholders,
     integrations: result.integrations,
+    integrationStats: result.integrationStats,
   };
 }
 

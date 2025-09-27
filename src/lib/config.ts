@@ -3,6 +3,7 @@ import {
   getEnvironmentValidationSummary,
   type EnvironmentConfig,
   type IntegrationSummaryEntry,
+  type IntegrationReadinessStats,
 } from './env-validation';
 
 export type { EnvironmentConfig };
@@ -14,6 +15,7 @@ export function validateEnvironment(): {
   mode: string;
   reason?: string;
   integrations: IntegrationSummaryEntry[];
+  integrationStats: IntegrationReadinessStats;
 } {
   const summary = getEnvironmentValidationSummary();
   return {
@@ -23,6 +25,7 @@ export function validateEnvironment(): {
     mode: summary.mode.type,
     reason: summary.mode.type === 'relaxed' ? summary.mode.reason : undefined,
     integrations: summary.integrations,
+    integrationStats: summary.integrationStats,
   };
 }
 

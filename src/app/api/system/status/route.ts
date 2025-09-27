@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         mode: validation.mode.type,
         reason: validation.mode.type === 'relaxed' ? validation.mode.reason : undefined,
         integrations: validation.integrations,
+        integrationStats: validation.integrationStats,
       },
       services: {
         api: 'operational',
