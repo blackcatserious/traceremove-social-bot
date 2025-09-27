@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { getEnvironmentValidationSummary } from '../src/lib/env-validation';
+// @ts-ignore - the CLI runs directly via ts-node which requires the explicit .ts extension
+import { getEnvironmentValidationSummary } from '../src/lib/env-validation.ts';
 
 const { loadEnvConfig } = nextEnv;
 

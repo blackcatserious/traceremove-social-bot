@@ -8,7 +8,7 @@
     "dev:ngrok": "node scripts/dev-with-ngrok.js",
     "build": "next build",
     "start": "next start",
-    "check:env": "tsx scripts/check-env.ts"
+    "check:env": "node --no-warnings scripts/check-env.mjs"
   },
   "dependencies": {
     "@ai-sdk/xai": "^2.0.18",
@@ -36,7 +36,6 @@
     "react-markdown": "^10.1.0",
     "tailwindcss": "^4.1.12",
     "twitter-api-v2": "^1.14.0",
-    "tsx": "^4.20.6",
     "zod": "^3.22.0"
   },
   "devDependencies": {
