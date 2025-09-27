@@ -170,12 +170,16 @@ function determineValidationMode(env: EnvSource): ValidationMode {
     return { type: 'relaxed', reason: 'SKIP_ENV_VALIDATION is enabled' };
   }
 
-  if (nodeEnv === 'production') {
-    return { type: 'strict' };
+  if (runningInCi) {
+    const reasonSuffix = nodeEnv === 'production' ? ' with NODE_ENV=production' : '';
+    return {
+      type: 'relaxed',
+      reason: `a CI environment${reasonSuffix} was detected`,
+    };
   }
 
-  if (runningInCi) {
-    return { type: 'relaxed', reason: 'a CI environment was detected' };
+  if (nodeEnv === 'production') {
+    return { type: 'strict' };
   }
 
   if (nodeEnv === 'test') {
@@ -200,8 +204,16 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     warnings.push(
       'Both ENFORCE_ENV_VALIDATION and SKIP_ENV_VALIDATION are set; enforcing strict validation to honour ENFORCE_ENV_VALIDATION.'
     );
-  } else if (mode.type === 'strict' && runningInCi && nodeEnv === 'production') {
-    warnings.push('CI environment detected but NODE_ENV=production; enforcing strict validation to avoid deploying with gaps.');
+  } else if (
+    mode.type === 'relaxed' &&
+    runningInCi &&
+    nodeEnv === 'production' &&
+    !skipRequested &&
+    !enforcementRequested
+  ) {
+    warnings.push(
+      'CI environment detected with NODE_ENV=production; relaxed validation is enabled so build pipelines can proceed. Set ENFORCE_ENV_VALIDATION=true to require real secrets.'
+    );
   }
 
   function createPlaceholder(key: string): string {
