@@ -162,6 +162,15 @@ const PLACEHOLDER_INDICATORS: Array<{ pattern: RegExp; description: string }> = 
   { pattern: /tbd/i, description: '"TBD" marker' },
   { pattern: /your[-_ ]/i, description: '"your-..." placeholder text' },
   { pattern: /xxxxx+/i, description: '"xxxxx" placeholder characters' },
+  { pattern: /insert[-_ ]?here/i, description: '"insert here" placeholder text' },
+  { pattern: /\bexample\b/i, description: '"example" placeholder text' },
+  { pattern: /\bsample\b/i, description: '"sample" placeholder text' },
+  { pattern: /\bfake\b/i, description: '"fake" placeholder text' },
+  { pattern: /\btemp(?:orary)?\b/i, description: '"temp" placeholder text' },
+  { pattern: /\btest(?:ing)?\b/i, description: '"test" placeholder text' },
+  { pattern: /\babc123\b/i, description: '"abc123" placeholder text' },
+  { pattern: /\b123456\b/, description: '"123456" placeholder digits' },
+  { pattern: /<[^>]+>/, description: 'angle-bracket placeholder value' },
 ];
 
 function isTruthy(value?: string): boolean {
@@ -181,6 +190,24 @@ function detectPlaceholderIndicator(value: string): string | undefined {
       return indicator.description;
     }
   }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+
+  if (/^([a-zA-Z0-9])\1{5,}$/.test(trimmed)) {
+    return 'repeated single-character placeholder value';
+  }
+
+  if (/^[*_.-]{5,}$/.test(trimmed)) {
+    return 'repeated punctuation placeholder value';
+  }
+
+  if (/^(?:password|letmein|secret)$/i.test(trimmed)) {
+    return 'common placeholder secret phrase';
+  }
+
   return undefined;
 }
 

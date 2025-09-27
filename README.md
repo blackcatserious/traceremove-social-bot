@@ -107,7 +107,7 @@ GITHUB_REPO=traceremove-social-bot
 
 The `npm run check:env` helper now reports which variables received placeholder secrets and highlights partial configurations (for example, when only one of the Upstash Redis credentials is present, S3 storage is missing a key, or a social integration is only partially configured). If you set `BOT_DRY_RUN=false`, the validator also warns when no network has the full credential set required for live publishing so you can address the gaps before deploying. Use `--strict` or `--relaxed` flags on the CLI to force a one-off validation mode without mutating the surrounding shell environment.
 
-In addition to missing variable checks, the validator inspects sensitive keys for common placeholder markers such as `changeme`, `replace-me`, or `your-...`. When these markers appear in secrets or access tokens the checker emits a warning so you can swap in the real credential before deploying.
+In addition to missing variable checks, the validator inspects sensitive keys for common placeholder markers such as `changeme`, `replace-me`, `sample`, `example`, `insert-here`, `abc123`, or repeated characters/punctuation. When these markers or other obvious stand-ins appear in secrets or access tokens the checker emits a warning so you can swap in the real credential before deploying.
 
 ## Folder structure
 
