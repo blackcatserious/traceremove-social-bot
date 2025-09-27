@@ -326,6 +326,48 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     );
   }
 
+  const slackSigningSecret = getOptional('SLACK_SIGNING_SECRET');
+  const slackBotToken = getOptional('SLACK_BOT_TOKEN');
+
+  if ((slackSigningSecret ? 1 : 0) + (slackBotToken ? 1 : 0) === 1) {
+    const missingSlackKey = slackSigningSecret ? 'SLACK_BOT_TOKEN' : 'SLACK_SIGNING_SECRET';
+    warnings.push(
+      `Partial Slack configuration detected; missing ${missingSlackKey}. Slack alerts will remain disabled until both credentials are provided.`
+    );
+  }
+
+  const twitterCredentials: Array<[string, string | undefined]> = [
+    ['TWITTER_APP_KEY', getOptional('TWITTER_APP_KEY')],
+    ['TWITTER_APP_SECRET', getOptional('TWITTER_APP_SECRET')],
+    ['TWITTER_ACCESS_TOKEN', getOptional('TWITTER_ACCESS_TOKEN')],
+    ['TWITTER_ACCESS_SECRET', getOptional('TWITTER_ACCESS_SECRET')],
+  ];
+  const providedTwitterKeys = twitterCredentials.filter(([, value]) => Boolean(value)).map(([key]) => key);
+  const missingTwitterKeys = twitterCredentials.filter(([, value]) => !value).map(([key]) => key);
+  if (providedTwitterKeys.length > 0 && missingTwitterKeys.length > 0) {
+    warnings.push(
+      `Partial Twitter configuration detected; missing ${missingTwitterKeys.join(', ')}. Posting to X/Twitter requires all credentials.`
+    );
+  }
+
+  const facebookPageId = getOptional('FB_PAGE_ID');
+  const facebookAccessToken = getOptional('FB_ACCESS_TOKEN');
+  if ((facebookPageId ? 1 : 0) + (facebookAccessToken ? 1 : 0) === 1) {
+    const missingFacebookKey = facebookPageId ? 'FB_ACCESS_TOKEN' : 'FB_PAGE_ID';
+    warnings.push(
+      `Partial Facebook configuration detected; missing ${missingFacebookKey}. Facebook publishing remains disabled until both are supplied.`
+    );
+  }
+
+  const instagramBusinessAccountId = getOptional('IG_BUSINESS_ACCOUNT_ID');
+  const instagramAccessToken = getOptional('IG_ACCESS_TOKEN');
+  if ((instagramBusinessAccountId ? 1 : 0) + (instagramAccessToken ? 1 : 0) === 1) {
+    const missingInstagramKey = instagramBusinessAccountId ? 'IG_ACCESS_TOKEN' : 'IG_BUSINESS_ACCOUNT_ID';
+    warnings.push(
+      `Partial Instagram configuration detected; missing ${missingInstagramKey}. Instagram publishing remains disabled until both are supplied.`
+    );
+  }
+
   const config: EnvironmentConfig = {
     notion: {
       token: getRequired('NOTION_TOKEN'),
@@ -386,8 +428,8 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
       adminToken: getRequired('ADMIN_TOKEN'),
       cronSecret: getRequired('CRON_SECRET'),
       reindexToken: getOptional('REINDEX_TOKEN'),
-      slackSigningSecret: getOptional('SLACK_SIGNING_SECRET'),
-      slackBotToken: getOptional('SLACK_BOT_TOKEN'),
+      slackSigningSecret,
+      slackBotToken,
       githubWebhookSecret: getOptional('GITHUB_WEBHOOK_SECRET'),
     },
     scheduler: {
@@ -402,18 +444,18 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     social: {
       dryRun: getBoolean('BOT_DRY_RUN', true),
       twitter: {
-        appKey: getOptional('TWITTER_APP_KEY'),
-        appSecret: getOptional('TWITTER_APP_SECRET'),
-        accessToken: getOptional('TWITTER_ACCESS_TOKEN'),
-        accessSecret: getOptional('TWITTER_ACCESS_SECRET'),
+        appKey: twitterCredentials[0][1],
+        appSecret: twitterCredentials[1][1],
+        accessToken: twitterCredentials[2][1],
+        accessSecret: twitterCredentials[3][1],
       },
       facebook: {
-        pageId: getOptional('FB_PAGE_ID'),
-        accessToken: getOptional('FB_ACCESS_TOKEN'),
+        pageId: facebookPageId,
+        accessToken: facebookAccessToken,
       },
       instagram: {
-        businessAccountId: getOptional('IG_BUSINESS_ACCOUNT_ID'),
-        accessToken: getOptional('IG_ACCESS_TOKEN'),
+        businessAccountId: instagramBusinessAccountId,
+        accessToken: instagramAccessToken,
       },
     },
     monitoring: {
