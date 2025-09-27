@@ -2,6 +2,7 @@ import nextEnv from '@next/env';
 import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 
 // @ts-ignore - the CLI runs directly via ts-node which requires the explicit .ts extension
 import { getEnvironmentValidationSummary } from '../src/lib/env-validation.ts';
@@ -271,7 +272,9 @@ function prepareEnvironment(args: CliArgs): { env: NodeJS.ProcessEnv; loadedFile
 function createSummaryPayload(
   summary: ReturnType<typeof getEnvironmentValidationSummary>,
   loadedFiles: string[],
-  failOnWarnings: boolean
+  failOnWarnings: boolean,
+  generatedAt: string,
+  durationMs: number
 ) {
   return {
     valid: summary.valid,
@@ -283,15 +286,25 @@ function createSummaryPayload(
     integrationStats: summary.integrationStats,
     loadedEnvFiles: loadedFiles,
     failedDueToWarnings: failOnWarnings && summary.warnings.length > 0,
+    generatedAt,
+    durationMs,
   };
 }
 
 function outputJson(
   summary: ReturnType<typeof getEnvironmentValidationSummary>,
   loadedFiles: string[],
-  failOnWarnings: boolean
+  failOnWarnings: boolean,
+  generatedAt: string,
+  durationMs: number
 ): void {
-  const payload = createSummaryPayload(summary, loadedFiles, failOnWarnings);
+  const payload = createSummaryPayload(
+    summary,
+    loadedFiles,
+    failOnWarnings,
+    generatedAt,
+    durationMs
+  );
   console.log(JSON.stringify(payload, null, 2));
   if (!summary.valid || (failOnWarnings && summary.warnings.length > 0)) {
     process.exitCode = 1;
@@ -302,11 +315,19 @@ function writeSummaryToFile(
   outputPath: string,
   summary: ReturnType<typeof getEnvironmentValidationSummary>,
   loadedFiles: string[],
-  failOnWarnings: boolean
+  failOnWarnings: boolean,
+  generatedAt: string,
+  durationMs: number
 ): void {
   const projectDir = process.cwd();
   const resolvedPath = resolveFilePath(outputPath, projectDir);
-  const payload = createSummaryPayload(summary, loadedFiles, failOnWarnings);
+  const payload = createSummaryPayload(
+    summary,
+    loadedFiles,
+    failOnWarnings,
+    generatedAt,
+    durationMs
+  );
   fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
   fs.writeFileSync(resolvedPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 }
@@ -314,7 +335,9 @@ function writeSummaryToFile(
 function outputHuman(
   summary: ReturnType<typeof getEnvironmentValidationSummary>,
   loadedFiles: string[],
-  failOnWarnings: boolean
+  failOnWarnings: boolean,
+  generatedAt: string,
+  durationMs: number
 ): void {
   if (loadedFiles.length > 0) {
     console.log('Loaded environment files:');
@@ -329,6 +352,7 @@ function outputHuman(
     : 'strict';
 
   console.log('Environment validation mode:', modeLabel);
+  console.log(`Report generated at ${generatedAt} (took ${durationMs}ms).`);
 
   if (summary.warnings.length > 0) {
     console.log('\nWarnings:');
@@ -393,18 +417,28 @@ function outputHuman(
 
 function main(): void {
   try {
+    const startTime = performance.now();
     const args = parseArgs(process.argv);
     const { env, loadedFiles } = prepareEnvironment(args);
     const summary = getEnvironmentValidationSummary(env);
+    const generatedAt = new Date().toISOString();
+    const durationMs = Math.round(performance.now() - startTime);
 
     if (args.json) {
-      outputJson(summary, loadedFiles, args.failOnWarnings);
+      outputJson(summary, loadedFiles, args.failOnWarnings, generatedAt, durationMs);
     } else {
-      outputHuman(summary, loadedFiles, args.failOnWarnings);
+      outputHuman(summary, loadedFiles, args.failOnWarnings, generatedAt, durationMs);
     }
 
     if (args.outputPath) {
-      writeSummaryToFile(args.outputPath, summary, loadedFiles, args.failOnWarnings);
+      writeSummaryToFile(
+        args.outputPath,
+        summary,
+        loadedFiles,
+        args.failOnWarnings,
+        generatedAt,
+        durationMs
+      );
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
