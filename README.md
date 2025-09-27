@@ -58,6 +58,10 @@ PG_DSN=postgresql://user:password@host:5432/database
 UPSTASH_VECTOR_REST_URL=https://xxxxx.upstash.io
 UPSTASH_VECTOR_REST_TOKEN=
 
+# Optional Upstash Redis cache (requires both values)
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+
 # Environment validation controls
 # Set ENFORCE_ENV_VALIDATION=true to force strict validation even if SKIP_ENV_VALIDATION is also set
 # Set SKIP_ENV_VALIDATION=true to allow startup with placeholder values (development only)
@@ -100,6 +104,8 @@ GITHUB_REPO=traceremove-social-bot
 ```
 
 > **Tip:** Automated environments such as `CI=1`, `VERCEL_CI=1`, `NODE_ENV=test`, or the `npm run build` lifecycle automatically opt into relaxed validation with safe placeholder values so build pipelines (and local production builds) can execute without storing real secrets. Set `ENFORCE_ENV_VALIDATION=true` to require strict validation everywhere, or `SKIP_ENV_VALIDATION=true` locally when you want to bypass checks explicitly.
+
+The `npm run check:env` helper now reports which variables received placeholder secrets and highlights partial configurations (for example, when only one of the Upstash Redis credentials is present or S3 storage is missing a key). Use this output to plug the gaps before deploying.
 
 ## Folder structure
 

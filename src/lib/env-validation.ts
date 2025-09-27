@@ -120,6 +120,7 @@ export interface EnvironmentValidationResult {
   missing: string[];
   warnings: string[];
   mode: ValidationMode;
+  placeholders: string[];
 }
 
 export class EnvironmentValidationError extends Error {
@@ -197,6 +198,7 @@ function determineValidationMode(env: EnvSource): ValidationMode {
 export function performEnvironmentValidation(env: EnvSource = process.env): EnvironmentValidationResult {
   const missingVars: string[] = [];
   const warnings: string[] = [];
+  const placeholdersUsed: string[] = [];
   const enforcementRequested = isTruthy(env.ENFORCE_ENV_VALIDATION);
   const skipRequested = isTruthy(env.SKIP_ENV_VALIDATION);
   const runningInCi = isTruthy(env.CI) || isTruthy(env.VERCEL_CI);
@@ -256,6 +258,9 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
       warnings.push(
         `${key} not set – using ${resolvedFallback ? 'a placeholder value' : 'an empty string'} because ${reason}.`
       );
+      if (resolvedFallback) {
+        placeholdersUsed.push(key);
+      }
       return resolvedFallback;
     }
     return value;
@@ -291,6 +296,35 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
   const storageAccessKey = getOptional('S3_ACCESS_KEY');
   const storageSecretKey = getOptional('S3_SECRET_KEY');
   const storageBucket = getOptional('S3_BUCKET') ?? 'traceremove-content';
+
+  const providedStorageKeys = [storageEndpoint, storageAccessKey, storageSecretKey].filter(Boolean).length;
+  if (providedStorageKeys > 0 && providedStorageKeys < 3) {
+    const missingKeys = [
+      storageEndpoint ? null : 'S3_ENDPOINT',
+      storageAccessKey ? null : 'S3_ACCESS_KEY',
+      storageSecretKey ? null : 'S3_SECRET_KEY',
+    ]
+      .filter((key): key is string => key !== null)
+      .join(', ');
+    warnings.push(
+      `Partial S3 configuration detected; missing ${missingKeys}. Object storage integration will remain disabled until all required credentials are provided.`
+    );
+  }
+
+  if (storageBucket && providedStorageKeys === 0 && (env.S3_BUCKET ?? '').length > 0) {
+    warnings.push(
+      'S3_BUCKET is set without other S3 credentials; the custom bucket value will be ignored until endpoint and access keys are configured.'
+    );
+  }
+
+  const redisRestUrl = getOptional('UPSTASH_REDIS_REST_URL');
+  const redisRestToken = getOptional('UPSTASH_REDIS_REST_TOKEN');
+
+  if ((redisRestUrl && !redisRestToken) || (!redisRestUrl && redisRestToken)) {
+    warnings.push(
+      'Partial Upstash Redis configuration detected; both UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required to enable caching.'
+    );
+  }
 
   const config: EnvironmentConfig = {
     notion: {
@@ -333,8 +367,8 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
       dimension: getOptionalNumber('VECTOR_DIMENSION', 1536),
     },
     cache: {
-      redisUrl: getOptional('UPSTASH_REDIS_REST_URL'),
-      redisToken: getOptional('UPSTASH_REDIS_REST_TOKEN'),
+      redisUrl: redisRestUrl,
+      redisToken: redisRestToken,
       ttlSearch: getOptionalNumber('CACHE_TTL_SEARCH', 3600),
       ttlDatabase: getOptionalNumber('CACHE_TTL_DATABASE', 1800),
       maxSize: getOptionalNumber('CACHE_MAX_SIZE', 1000),
@@ -408,13 +442,20 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     },
   };
 
-  return { config, missing: missingVars, warnings, mode };
+  return { config, missing: missingVars, warnings, mode, placeholders: placeholdersUsed };
 }
 
 export function validateEnvironment(env: EnvSource = process.env): EnvironmentConfig {
   const result = performEnvironmentValidation(env);
   if (result.warnings.length > 0 && (result.mode.type === 'relaxed' || result.config.development.debugMode === true)) {
     console.warn('Environment validation warnings:', result.warnings);
+  }
+  if (result.placeholders.length > 0 && result.mode.type === 'relaxed') {
+    const context = result.mode.reason ? ` (${result.mode.reason})` : '';
+    console.warn(
+      `Environment placeholders were used${context}. Substitute real secrets for:`,
+      result.placeholders
+    );
   }
   if (result.missing.length > 0 && result.mode.type === 'relaxed') {
     const context = result.mode.reason ? ` (${result.mode.reason})` : '';
@@ -439,6 +480,7 @@ export function getEnvironmentValidationSummary(env: EnvSource = process.env): {
   missing: string[];
   warnings: string[];
   mode: ValidationMode;
+  placeholders: string[];
 } {
   const result = performEnvironmentValidation(env);
   return {
@@ -446,6 +488,7 @@ export function getEnvironmentValidationSummary(env: EnvSource = process.env): {
     missing: result.missing,
     warnings: result.warnings,
     mode: result.mode,
+    placeholders: result.placeholders,
   };
 }
 

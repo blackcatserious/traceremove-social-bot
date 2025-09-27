@@ -124,8 +124,8 @@ function loadEnvFile(filePath: string): Record<string, string> {
   return dotenv.parse(contents);
 }
 
-function applyExamplePlaceholders(parsed: Record<string, string>): Record<string, string> {
-  const env: Record<string, string> = {};
+function applyExamplePlaceholders(parsed: Record<string, string>): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { NODE_ENV: 'development' };
   for (const [key, value] of Object.entries(parsed)) {
     const trimmed = value?.trim() ?? '';
     if (trimmed.length > 0) {
@@ -149,9 +149,6 @@ function applyExamplePlaceholders(parsed: Record<string, string>): Record<string
     }
 
     env[key] = createPlaceholder(key);
-  }
-  if (!('NODE_ENV' in env)) {
-    env.NODE_ENV = 'development';
   }
   for (const flag of BOOLEAN_FALSE_DEFAULTS) {
     if (!(flag in env)) {
@@ -199,6 +196,7 @@ function outputJson(summary: ReturnType<typeof getEnvironmentValidationSummary>,
     mode: summary.mode,
     warnings: summary.warnings,
     missing: summary.missing,
+    placeholdersUsed: summary.placeholders,
     loadedEnvFiles: loadedFiles,
   };
   console.log(JSON.stringify(payload, null, 2));
@@ -226,6 +224,13 @@ function outputHuman(summary: ReturnType<typeof getEnvironmentValidationSummary>
     console.log('\nWarnings:');
     for (const warning of summary.warnings) {
       console.log(`  • ${warning}`);
+    }
+  }
+
+  if (summary.placeholders.length > 0) {
+    console.log('\nPlaceholder values injected for:');
+    for (const key of summary.placeholders) {
+      console.log(`  • ${key}`);
     }
   }
 
