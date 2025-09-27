@@ -15,6 +15,7 @@ type CliArgs = {
   dotenvFiles: string[];
   exampleFile?: string;
   modeOverride?: ValidationOverride;
+  failOnWarnings: boolean;
 };
 
 const BOOLEAN_FALSE_DEFAULTS = new Set([
@@ -49,7 +50,7 @@ function createPlaceholder(key: string): string {
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { json: false, dotenvFiles: [] };
+  const args: CliArgs = { json: false, dotenvFiles: [], failOnWarnings: false };
   for (let index = 2; index < argv.length; index += 1) {
     const token = argv[index];
     if (token === '--json') {
@@ -106,6 +107,11 @@ function parseArgs(argv: string[]): CliArgs {
       continue;
     }
 
+    if (token === '--fail-on-warnings' || token === '--fail-on-warning') {
+      args.failOnWarnings = true;
+      continue;
+    }
+
     if (token === '--help' || token === '-h') {
       printHelp();
       process.exit(0);
@@ -127,7 +133,7 @@ function parseArgs(argv: string[]): CliArgs {
 
 function printHelp(): void {
   console.log(
-    `Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]\n\nOptions:\n  --json            Output results as JSON\n  --dotenv <path>   Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]  Validate an example env file (defaults to .env.example) without touching local secrets\n  --strict          Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)\n  --relaxed         Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)\n  -h, --help        Show this help message`
+    `Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]\n\nOptions:\n  --json            Output results as JSON\n  --dotenv <path>   Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]  Validate an example env file (defaults to .env.example) without touching local secrets\n  --strict          Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)\n  --relaxed         Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)\n  --fail-on-warnings Exit with a non-zero status code if validation warnings are present\n  -h, --help        Show this help message`
   );
 }
 
@@ -231,7 +237,11 @@ function prepareEnvironment(args: CliArgs): { env: NodeJS.ProcessEnv; loadedFile
   return { env, loadedFiles: Array.from(loaded) };
 }
 
-function outputJson(summary: ReturnType<typeof getEnvironmentValidationSummary>, loadedFiles: string[]): void {
+function outputJson(
+  summary: ReturnType<typeof getEnvironmentValidationSummary>,
+  loadedFiles: string[],
+  failOnWarnings: boolean
+): void {
   const payload = {
     valid: summary.valid,
     mode: summary.mode,
@@ -241,14 +251,19 @@ function outputJson(summary: ReturnType<typeof getEnvironmentValidationSummary>,
     integrations: summary.integrations,
     integrationStats: summary.integrationStats,
     loadedEnvFiles: loadedFiles,
+    failedDueToWarnings: failOnWarnings && summary.warnings.length > 0,
   };
   console.log(JSON.stringify(payload, null, 2));
-  if (!summary.valid) {
+  if (!summary.valid || (failOnWarnings && summary.warnings.length > 0)) {
     process.exitCode = 1;
   }
 }
 
-function outputHuman(summary: ReturnType<typeof getEnvironmentValidationSummary>, loadedFiles: string[]): void {
+function outputHuman(
+  summary: ReturnType<typeof getEnvironmentValidationSummary>,
+  loadedFiles: string[],
+  failOnWarnings: boolean
+): void {
   if (loadedFiles.length > 0) {
     console.log('Loaded environment files:');
     for (const file of loadedFiles) {
@@ -268,6 +283,10 @@ function outputHuman(summary: ReturnType<typeof getEnvironmentValidationSummary>
     for (const warning of summary.warnings) {
       console.log(`  • ${warning}`);
     }
+  }
+
+  if (failOnWarnings && summary.warnings.length > 0) {
+    console.log('\nValidation warnings are treated as errors (--fail-on-warnings).');
   }
 
   if (summary.integrations.length > 0) {
@@ -312,6 +331,9 @@ function outputHuman(summary: ReturnType<typeof getEnvironmentValidationSummary>
     }
     console.log('\nEnvironment validation failed.');
     process.exitCode = 1;
+  } else if (failOnWarnings && summary.warnings.length > 0) {
+    console.log('\nEnvironment validation failed due to warnings.');
+    process.exitCode = 1;
   } else {
     console.log('\nAll required environment variables are set.');
   }
@@ -324,9 +346,9 @@ function main(): void {
     const summary = getEnvironmentValidationSummary(env);
 
     if (args.json) {
-      outputJson(summary, loadedFiles);
+      outputJson(summary, loadedFiles, args.failOnWarnings);
     } else {
-      outputHuman(summary, loadedFiles);
+      outputHuman(summary, loadedFiles, args.failOnWarnings);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
