@@ -6,6 +6,8 @@ import { performance } from 'node:perf_hooks';
 
 // @ts-ignore - the CLI runs directly via ts-node which requires the explicit .ts extension
 import { getEnvironmentValidationSummary } from '../src/lib/env-validation.ts';
+// @ts-ignore - type-only import retains the explicit extension for ts-node
+import type { IntegrationSummaryEntry } from '../src/lib/env-validation.ts';
 
 const { loadEnvConfig } = nextEnv;
 
@@ -18,6 +20,7 @@ type CliArgs = {
   modeOverride?: ValidationOverride;
   failOnWarnings: boolean;
   outputPath?: string;
+  requireOptional: boolean;
 };
 
 const BOOLEAN_FALSE_DEFAULTS = new Set([
@@ -59,7 +62,12 @@ function formatPercentage(value: number): string {
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { json: false, dotenvFiles: [], failOnWarnings: false };
+  const args: CliArgs = {
+    json: false,
+    dotenvFiles: [],
+    failOnWarnings: false,
+    requireOptional: false,
+  };
   for (let index = 2; index < argv.length; index += 1) {
     const token = argv[index];
     if (token === '--json') {
@@ -121,6 +129,15 @@ function parseArgs(argv: string[]): CliArgs {
       continue;
     }
 
+    if (
+      token === '--require-optional' ||
+      token === '--require-optionals' ||
+      token === '--require-all-optional'
+    ) {
+      args.requireOptional = true;
+      continue;
+    }
+
     if (token === '--output' || token === '-o') {
       const nextToken = argv[index + 1];
       if (!nextToken || nextToken.startsWith('-')) {
@@ -165,7 +182,7 @@ function parseArgs(argv: string[]): CliArgs {
 
 function printHelp(): void {
   console.log(
-    `Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]\n\nOptions:\n  --json            Output results as JSON\n  --dotenv <path>   Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]  Validate an example env file (defaults to .env.example) without touching local secrets\n  --strict          Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)\n  --relaxed         Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)\n  --fail-on-warnings Exit with a non-zero status code if validation warnings are present\n  --output <path>   Write the JSON summary payload to a file (useful for CI artifacts)\n  -h, --help        Show this help message`
+    `Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]\n\nOptions:\n  --json              Output results as JSON\n  --dotenv <path>     Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]    Validate an example env file (defaults to .env.example) without touching local secrets\n  --strict            Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)\n  --relaxed           Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)\n  --fail-on-warnings  Exit with a non-zero status code if validation warnings are present\n  --require-optional  Treat optional integrations as required and fail if any are not ready\n  --output <path>     Write the JSON summary payload to a file (useful for CI artifacts)\n  -h, --help          Show this help message`
   );
 }
 
@@ -274,7 +291,9 @@ function createSummaryPayload(
   loadedFiles: string[],
   failOnWarnings: boolean,
   generatedAt: string,
-  durationMs: number
+  durationMs: number,
+  optionalFailures: IntegrationSummaryEntry[],
+  requireOptional: boolean
 ) {
   return {
     valid: summary.valid,
@@ -286,6 +305,17 @@ function createSummaryPayload(
     integrationStats: summary.integrationStats,
     loadedEnvFiles: loadedFiles,
     failedDueToWarnings: failOnWarnings && summary.warnings.length > 0,
+    optionalIntegrationsRequired: requireOptional,
+    failedDueToOptionalRequirements: requireOptional && optionalFailures.length > 0,
+    missingOptionalIntegrations: requireOptional
+      ? optionalFailures.map((integration) => ({
+          key: integration.key,
+          label: integration.label,
+          status: integration.status,
+          missing: integration.missing,
+          placeholders: integration.placeholders,
+        }))
+      : [],
     generatedAt,
     durationMs,
   };
@@ -296,17 +326,25 @@ function outputJson(
   loadedFiles: string[],
   failOnWarnings: boolean,
   generatedAt: string,
-  durationMs: number
+  durationMs: number,
+  optionalFailures: IntegrationSummaryEntry[],
+  requireOptional: boolean
 ): void {
   const payload = createSummaryPayload(
     summary,
     loadedFiles,
     failOnWarnings,
     generatedAt,
-    durationMs
+    durationMs,
+    optionalFailures,
+    requireOptional
   );
   console.log(JSON.stringify(payload, null, 2));
-  if (!summary.valid || (failOnWarnings && summary.warnings.length > 0)) {
+  if (
+    !summary.valid ||
+    (failOnWarnings && summary.warnings.length > 0) ||
+    (requireOptional && optionalFailures.length > 0)
+  ) {
     process.exitCode = 1;
   }
 }
@@ -317,7 +355,9 @@ function writeSummaryToFile(
   loadedFiles: string[],
   failOnWarnings: boolean,
   generatedAt: string,
-  durationMs: number
+  durationMs: number,
+  optionalFailures: IntegrationSummaryEntry[],
+  requireOptional: boolean
 ): void {
   const projectDir = process.cwd();
   const resolvedPath = resolveFilePath(outputPath, projectDir);
@@ -326,7 +366,9 @@ function writeSummaryToFile(
     loadedFiles,
     failOnWarnings,
     generatedAt,
-    durationMs
+    durationMs,
+    optionalFailures,
+    requireOptional
   );
   fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
   fs.writeFileSync(resolvedPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
@@ -337,7 +379,9 @@ function outputHuman(
   loadedFiles: string[],
   failOnWarnings: boolean,
   generatedAt: string,
-  durationMs: number
+  durationMs: number,
+  optionalFailures: IntegrationSummaryEntry[],
+  requireOptional: boolean
 ): void {
   if (loadedFiles.length > 0) {
     console.log('Loaded environment files:');
@@ -393,6 +437,27 @@ function outputHuman(
     );
   }
 
+  if (requireOptional) {
+    if (optionalFailures.length === 0) {
+      console.log('\nOptional integrations were required for this run and all of them are ready.');
+    } else {
+      console.log('\nOptional integrations required for this run are not ready:');
+      for (const integration of optionalFailures) {
+        const notes: string[] = [];
+        if (integration.missing.length > 0) {
+          notes.push(`missing ${integration.missing.join(', ')}`);
+        }
+        if (integration.placeholders.length > 0) {
+          notes.push(`placeholder values for ${integration.placeholders.join(', ')}`);
+        }
+        const detail = notes.length > 0 ? ` — ${notes.join('; ')}` : '';
+        console.log(`  • ${integration.label} (${integration.status})${detail}`);
+      }
+    }
+  }
+
+  const optionalFailureTriggered = requireOptional && optionalFailures.length > 0;
+
   if (summary.placeholders.length > 0) {
     console.log('\nPlaceholder values injected for:');
     for (const key of summary.placeholders) {
@@ -406,6 +471,9 @@ function outputHuman(
       console.log(`  • ${variable}`);
     }
     console.log('\nEnvironment validation failed.');
+    process.exitCode = 1;
+  } else if (optionalFailureTriggered) {
+    console.log('\nEnvironment validation failed because optional integrations were required but not ready.');
     process.exitCode = 1;
   } else if (failOnWarnings && summary.warnings.length > 0) {
     console.log('\nEnvironment validation failed due to warnings.');
@@ -423,11 +491,30 @@ function main(): void {
     const summary = getEnvironmentValidationSummary(env);
     const generatedAt = new Date().toISOString();
     const durationMs = Math.round(performance.now() - startTime);
+    const optionalFailures = args.requireOptional
+      ? summary.integrations.filter((integration) => integration.optional && integration.status !== 'ready')
+      : [];
 
     if (args.json) {
-      outputJson(summary, loadedFiles, args.failOnWarnings, generatedAt, durationMs);
+      outputJson(
+        summary,
+        loadedFiles,
+        args.failOnWarnings,
+        generatedAt,
+        durationMs,
+        optionalFailures,
+        args.requireOptional
+      );
     } else {
-      outputHuman(summary, loadedFiles, args.failOnWarnings, generatedAt, durationMs);
+      outputHuman(
+        summary,
+        loadedFiles,
+        args.failOnWarnings,
+        generatedAt,
+        durationMs,
+        optionalFailures,
+        args.requireOptional
+      );
     }
 
     if (args.outputPath) {
@@ -437,7 +524,9 @@ function main(): void {
         loadedFiles,
         args.failOnWarnings,
         generatedAt,
-        durationMs
+        durationMs,
+        optionalFailures,
+        args.requireOptional
       );
     }
   } catch (error) {
