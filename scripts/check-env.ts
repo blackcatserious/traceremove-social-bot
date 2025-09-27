@@ -10,7 +10,7 @@ const { loadEnvConfig } = nextEnv;
 
 type CliArgs = {
   json: boolean;
-  dotenvFile?: string;
+  dotenvFiles: string[];
   exampleFile?: string;
 };
 
@@ -46,7 +46,7 @@ function createPlaceholder(key: string): string {
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { json: false };
+  const args: CliArgs = { json: false, dotenvFiles: [] };
   for (let index = 2; index < argv.length; index += 1) {
     const token = argv[index];
     if (token === '--json') {
@@ -59,14 +59,14 @@ function parseArgs(argv: string[]): CliArgs {
       if (!nextToken || nextToken.startsWith('-')) {
         throw new Error('Missing value for --dotenv');
       }
-      args.dotenvFile = nextToken;
+      args.dotenvFiles.push(nextToken);
       index += 1;
       continue;
     }
 
     if (token.startsWith('--dotenv=')) {
       const [, value] = token.split('=');
-      args.dotenvFile = value ?? '';
+      args.dotenvFiles.push(value ?? '');
       continue;
     }
 
@@ -95,11 +95,11 @@ function parseArgs(argv: string[]): CliArgs {
     throw new Error(`Unknown argument: ${token}`);
   }
 
-  if (args.dotenvFile !== undefined && args.dotenvFile.trim() === '') {
+  if (args.dotenvFiles.some((file) => file.trim() === '')) {
     throw new Error('Missing value for --dotenv');
   }
 
-  if (args.dotenvFile && args.exampleFile) {
+  if (args.dotenvFiles.length > 0 && args.exampleFile) {
     throw new Error('Cannot combine --dotenv with --example. Choose one approach for loading environment variables.');
   }
 
@@ -107,7 +107,7 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function printHelp(): void {
-  console.log(`Usage: npm run check:env [-- --json] [-- --dotenv <path>] [-- --example [path]]\n\nOptions:\n  --json              Output results as JSON\n  --dotenv <path>     Load an additional env file on top of the standard Next.js resolution\n  --example [path]    Validate an example env file (defaults to .env.example) without touching local secrets\n  -h, --help          Show this help message`);
+  console.log(`Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]]\n\nOptions:\n  --json              Output results as JSON\n  --dotenv <path>     Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]    Validate an example env file (defaults to .env.example) without touching local secrets\n  -h, --help          Show this help message`);
 }
 
 function resolveFilePath(target: string, projectDir: string): string {
@@ -180,12 +180,14 @@ function prepareEnvironment(args: CliArgs): { env: NodeJS.ProcessEnv; loadedFile
 
   const env: NodeJS.ProcessEnv = { ...process.env };
 
-  if (args.dotenvFile) {
-    const envPath = resolveFilePath(args.dotenvFile, projectDir);
-    assertFileExists(envPath);
-    const parsed = loadEnvFile(envPath);
-    Object.assign(env, parsed);
-    loaded.add(path.relative(projectDir, envPath));
+  if (args.dotenvFiles.length > 0) {
+    for (const dotenvFile of args.dotenvFiles) {
+      const envPath = resolveFilePath(dotenvFile, projectDir);
+      assertFileExists(envPath);
+      const parsed = loadEnvFile(envPath);
+      Object.assign(env, parsed);
+      loaded.add(path.relative(projectDir, envPath));
+    }
   }
 
   return { env, loadedFiles: Array.from(loaded) };
