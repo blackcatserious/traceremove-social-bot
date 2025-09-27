@@ -379,24 +379,21 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     },
   };
 
-  const shouldLogWarnings = warnings.length > 0 && (mode.type === 'relaxed' || config.development.debugMode === true);
-  if (shouldLogWarnings) {
-    console.warn('Environment validation warnings:', warnings);
-  }
-
-  if (missingVars.length > 0 && mode.type === 'relaxed') {
-    const context = relaxedReason ? ` (${relaxedReason})` : '';
-    console.warn(
-      `Environment validation running in relaxed mode${context}. Proceeding with placeholder values for:`,
-      missingVars
-    );
-  }
-
   return { config, missing: missingVars, warnings, mode };
 }
 
 export function validateEnvironment(env: EnvSource = process.env): EnvironmentConfig {
   const result = performEnvironmentValidation(env);
+  if (result.warnings.length > 0 && (result.mode.type === 'relaxed' || result.config.development.debugMode === true)) {
+    console.warn('Environment validation warnings:', result.warnings);
+  }
+  if (result.missing.length > 0 && result.mode.type === 'relaxed') {
+    const context = result.mode.reason ? ` (${result.mode.reason})` : '';
+    console.warn(
+      `Environment validation running in relaxed mode${context}. Proceeding with placeholder values for:`,
+      result.missing
+    );
+  }
   if (result.missing.length > 0 && result.mode.type === 'strict') {
     throw new EnvironmentValidationError(
       `Missing required environment variables: ${result.missing.join(', ')}. Please check your .env.local file and ensure all required variables are set.`,
