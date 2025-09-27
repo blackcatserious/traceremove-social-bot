@@ -13,6 +13,13 @@ const { loadEnvConfig } = nextEnv;
 
 type ValidationOverride = 'strict' | 'relaxed';
 
+type RequirementReason = 'optional' | 'explicit';
+
+type IntegrationRequirement = {
+  integration: IntegrationSummaryEntry;
+  reasons: RequirementReason[];
+};
+
 type CliArgs = {
   json: boolean;
   dotenvFiles: string[];
@@ -21,6 +28,7 @@ type CliArgs = {
   failOnWarnings: boolean;
   outputPath?: string;
   requireOptional: boolean;
+  requiredIntegrations: string[];
 };
 
 const BOOLEAN_FALSE_DEFAULTS = new Set([
@@ -61,13 +69,123 @@ function formatPercentage(value: number): string {
   return value % 1 === 0 ? `${value.toFixed(0)}%` : `${value.toFixed(1)}%`;
 }
 
+function sortRequirementReasons(reasons: Iterable<RequirementReason>): RequirementReason[] {
+  const order: Record<RequirementReason, number> = {
+    optional: 0,
+    explicit: 1,
+  };
+  return Array.from(new Set(reasons)).sort((a, b) => order[a] - order[b]);
+}
+
+function describeRequirementReasons(reasons: RequirementReason[]): string | undefined {
+  if (reasons.length === 0) {
+    return undefined;
+  }
+  const descriptions = reasons.map((reason) => {
+    if (reason === 'optional') {
+      return 'optional enforcement (--require-optional)';
+    }
+    return 'explicit request (--require)';
+  });
+  if (descriptions.length === 1) {
+    return descriptions[0];
+  }
+  return `${descriptions.slice(0, -1).join(', ')} and ${descriptions.at(-1)}`;
+}
+
+function summarizeRequirementSources(
+  requireOptional: boolean,
+  requiredIntegrations: IntegrationRequirement[]
+): string {
+  const hasExplicit = requiredIntegrations.some((entry) => entry.reasons.includes('explicit'));
+  const sources: string[] = [];
+  if (requireOptional) {
+    sources.push('optional enforcement');
+  }
+  if (hasExplicit) {
+    sources.push('explicit requests');
+  }
+  if (sources.length === 0) {
+    return '';
+  }
+  if (sources.length === 1) {
+    return ` (${sources[0]})`;
+  }
+  return ` (${sources.join(' + ')})`;
+}
+
+function buildIntegrationRequirements(
+  integrations: IntegrationSummaryEntry[],
+  requireOptional: boolean,
+  requiredIntegrations: string[]
+): IntegrationRequirement[] {
+  const byKey = new Map(
+    integrations.map((integration) => [integration.key.toLowerCase(), integration] as const)
+  );
+
+  const requirements = new Map<string, { integration: IntegrationSummaryEntry; reasons: Set<RequirementReason> }>();
+
+  if (requireOptional) {
+    for (const integration of integrations) {
+      if (!integration.optional) {
+        continue;
+      }
+      requirements.set(integration.key.toLowerCase(), {
+        integration,
+        reasons: new Set<RequirementReason>(['optional']),
+      });
+    }
+  }
+
+  for (const key of requiredIntegrations) {
+    const integration = byKey.get(key.toLowerCase());
+    if (!integration) {
+      continue;
+    }
+    const normalizedKey = integration.key.toLowerCase();
+    const existing = requirements.get(normalizedKey);
+    if (existing) {
+      existing.reasons.add('explicit');
+      continue;
+    }
+    requirements.set(normalizedKey, {
+      integration,
+      reasons: new Set<RequirementReason>(['explicit']),
+    });
+  }
+
+  return Array.from(requirements.values()).map(({ integration, reasons }) => ({
+    integration,
+    reasons: sortRequirementReasons(reasons),
+  }));
+}
+
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     json: false,
     dotenvFiles: [],
     failOnWarnings: false,
     requireOptional: false,
+    requiredIntegrations: [],
   };
+
+  function addRequiredIntegrations(value: string | undefined, flag: string): void {
+    if (!value) {
+      throw new Error(`Missing value for ${flag}`);
+    }
+    const integrations = value
+      .split(',')
+      .map((part) => part.trim().toLowerCase())
+      .filter((part) => part.length > 0);
+    if (integrations.length === 0) {
+      throw new Error(`Missing value for ${flag}`);
+    }
+    for (const integration of integrations) {
+      if (!args.requiredIntegrations.includes(integration)) {
+        args.requiredIntegrations.push(integration);
+      }
+    }
+  }
   for (let index = 2; index < argv.length; index += 1) {
     const token = argv[index];
     if (token === '--json') {
@@ -138,6 +256,38 @@ function parseArgs(argv: string[]): CliArgs {
       continue;
     }
 
+    if (
+      token === '--require' ||
+      token === '--require-integration' ||
+      token === '--require-integrations'
+    ) {
+      const nextToken = argv[index + 1];
+      if (!nextToken || nextToken.startsWith('-')) {
+        throw new Error('Missing value for --require');
+      }
+      addRequiredIntegrations(nextToken, '--require');
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith('--require=')) {
+      const [, value] = token.split('=');
+      addRequiredIntegrations(value, '--require');
+      continue;
+    }
+
+    if (token.startsWith('--require-integration=')) {
+      const [, value] = token.split('=');
+      addRequiredIntegrations(value, '--require-integration');
+      continue;
+    }
+
+    if (token.startsWith('--require-integrations=')) {
+      const [, value] = token.split('=');
+      addRequiredIntegrations(value, '--require-integrations');
+      continue;
+    }
+
     if (token === '--output' || token === '-o') {
       const nextToken = argv[index + 1];
       if (!nextToken || nextToken.startsWith('-')) {
@@ -181,9 +331,22 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function printHelp(): void {
-  console.log(
-    `Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]\n\nOptions:\n  --json              Output results as JSON\n  --dotenv <path>     Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]    Validate an example env file (defaults to .env.example) without touching local secrets\n  --strict            Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)\n  --relaxed           Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)\n  --fail-on-warnings  Exit with a non-zero status code if validation warnings are present\n  --require-optional  Treat optional integrations as required and fail if any are not ready\n  --output <path>     Write the JSON summary payload to a file (useful for CI artifacts)\n  -h, --help          Show this help message`
-  );
+  const message = [
+    'Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]',
+    '',
+    'Options:',
+    '  --json              Output results as JSON',
+    '  --dotenv <path>     Load one or more additional env files on top of the standard Next.js resolution',
+    '  --example [path]    Validate an example env file (defaults to .env.example) without touching local secrets',
+    '  --strict            Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)',
+    '  --relaxed           Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)',
+    '  --fail-on-warnings  Exit with a non-zero status code if validation warnings are present',
+    '  --require-optional  Treat optional integrations as required and fail if any are not ready',
+    '  --require <keys>   Require specific integrations by key (comma separated or repeat the flag)',
+    '  --output <path>     Write the JSON summary payload to a file (useful for CI artifacts)',
+    '  -h, --help          Show this help message',
+  ].join('\n');
+  console.log(message);
 }
 
 function resolveFilePath(target: string, projectDir: string): string {
@@ -292,9 +455,16 @@ function createSummaryPayload(
   failOnWarnings: boolean,
   generatedAt: string,
   durationMs: number,
-  optionalFailures: IntegrationSummaryEntry[],
+  requiredIntegrations: IntegrationRequirement[],
   requireOptional: boolean
 ) {
+  const requirementFailures = requiredIntegrations.filter(
+    (item) => item.integration.status !== 'ready'
+  );
+  const optionalFailures = requireOptional
+    ? requirementFailures.filter((item) => item.reasons.includes('optional'))
+    : [];
+
   return {
     valid: summary.valid,
     mode: summary.mode,
@@ -308,14 +478,34 @@ function createSummaryPayload(
     optionalIntegrationsRequired: requireOptional,
     failedDueToOptionalRequirements: requireOptional && optionalFailures.length > 0,
     missingOptionalIntegrations: requireOptional
-      ? optionalFailures.map((integration) => ({
-          key: integration.key,
-          label: integration.label,
-          status: integration.status,
-          missing: integration.missing,
-          placeholders: integration.placeholders,
+      ? optionalFailures.map((entry) => ({
+          key: entry.integration.key,
+          label: entry.integration.label,
+          status: entry.integration.status,
+          missing: entry.integration.missing,
+          placeholders: entry.integration.placeholders,
+          reasons: entry.reasons,
         }))
       : [],
+    requiredIntegrations: requiredIntegrations.map((entry) => ({
+      key: entry.integration.key,
+      label: entry.integration.label,
+      status: entry.integration.status,
+      optional: entry.integration.optional,
+      missing: entry.integration.missing,
+      placeholders: entry.integration.placeholders,
+      reasons: entry.reasons,
+    })),
+    failedDueToIntegrationRequirements: requirementFailures.length > 0,
+    missingRequiredIntegrations: requirementFailures.map((entry) => ({
+      key: entry.integration.key,
+      label: entry.integration.label,
+      status: entry.integration.status,
+      optional: entry.integration.optional,
+      missing: entry.integration.missing,
+      placeholders: entry.integration.placeholders,
+      reasons: entry.reasons,
+    })),
     generatedAt,
     durationMs,
   };
@@ -327,7 +517,7 @@ function outputJson(
   failOnWarnings: boolean,
   generatedAt: string,
   durationMs: number,
-  optionalFailures: IntegrationSummaryEntry[],
+  requiredIntegrations: IntegrationRequirement[],
   requireOptional: boolean
 ): void {
   const payload = createSummaryPayload(
@@ -336,14 +526,14 @@ function outputJson(
     failOnWarnings,
     generatedAt,
     durationMs,
-    optionalFailures,
+    requiredIntegrations,
     requireOptional
   );
   console.log(JSON.stringify(payload, null, 2));
   if (
     !summary.valid ||
     (failOnWarnings && summary.warnings.length > 0) ||
-    (requireOptional && optionalFailures.length > 0)
+    payload.failedDueToIntegrationRequirements
   ) {
     process.exitCode = 1;
   }
@@ -356,7 +546,7 @@ function writeSummaryToFile(
   failOnWarnings: boolean,
   generatedAt: string,
   durationMs: number,
-  optionalFailures: IntegrationSummaryEntry[],
+  requiredIntegrations: IntegrationRequirement[],
   requireOptional: boolean
 ): void {
   const projectDir = process.cwd();
@@ -367,7 +557,7 @@ function writeSummaryToFile(
     failOnWarnings,
     generatedAt,
     durationMs,
-    optionalFailures,
+    requiredIntegrations,
     requireOptional
   );
   fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
@@ -380,7 +570,7 @@ function outputHuman(
   failOnWarnings: boolean,
   generatedAt: string,
   durationMs: number,
-  optionalFailures: IntegrationSummaryEntry[],
+  requiredIntegrations: IntegrationRequirement[],
   requireOptional: boolean
 ): void {
   if (loadedFiles.length > 0) {
@@ -437,26 +627,37 @@ function outputHuman(
     );
   }
 
-  if (requireOptional) {
-    if (optionalFailures.length === 0) {
-      console.log('\nOptional integrations were required for this run and all of them are ready.');
+  if (requiredIntegrations.length > 0) {
+    const requirementFailures = requiredIntegrations.filter(
+      (entry) => entry.integration.status !== 'ready'
+    );
+    const sourceSummary = summarizeRequirementSources(requireOptional, requiredIntegrations);
+
+    if (requirementFailures.length === 0) {
+      console.log(`\nIntegrations required for this run${sourceSummary} are ready.`);
     } else {
-      console.log('\nOptional integrations required for this run are not ready:');
-      for (const integration of optionalFailures) {
+      console.log(`\nIntegrations required for this run${sourceSummary} are not ready:`);
+      for (const entry of requirementFailures) {
         const notes: string[] = [];
-        if (integration.missing.length > 0) {
-          notes.push(`missing ${integration.missing.join(', ')}`);
+        if (entry.integration.missing.length > 0) {
+          notes.push(`missing ${entry.integration.missing.join(', ')}`);
         }
-        if (integration.placeholders.length > 0) {
-          notes.push(`placeholder values for ${integration.placeholders.join(', ')}`);
+        if (entry.integration.placeholders.length > 0) {
+          notes.push(`placeholder values for ${entry.integration.placeholders.join(', ')}`);
+        }
+        const reasonText = describeRequirementReasons(entry.reasons);
+        if (reasonText) {
+          notes.push(reasonText);
         }
         const detail = notes.length > 0 ? ` — ${notes.join('; ')}` : '';
-        console.log(`  • ${integration.label} (${integration.status})${detail}`);
+        console.log(`  • ${entry.integration.label} (${entry.integration.status})${detail}`);
       }
     }
   }
 
-  const optionalFailureTriggered = requireOptional && optionalFailures.length > 0;
+  const requirementFailureTriggered = requiredIntegrations.some(
+    (entry) => entry.integration.status !== 'ready'
+  );
 
   if (summary.placeholders.length > 0) {
     console.log('\nPlaceholder values injected for:');
@@ -472,8 +673,8 @@ function outputHuman(
     }
     console.log('\nEnvironment validation failed.');
     process.exitCode = 1;
-  } else if (optionalFailureTriggered) {
-    console.log('\nEnvironment validation failed because optional integrations were required but not ready.');
+  } else if (requirementFailureTriggered) {
+    console.log('\nEnvironment validation failed because required integrations were not ready.');
     process.exitCode = 1;
   } else if (failOnWarnings && summary.warnings.length > 0) {
     console.log('\nEnvironment validation failed due to warnings.');
@@ -491,9 +692,24 @@ function main(): void {
     const summary = getEnvironmentValidationSummary(env);
     const generatedAt = new Date().toISOString();
     const durationMs = Math.round(performance.now() - startTime);
-    const optionalFailures = args.requireOptional
-      ? summary.integrations.filter((integration) => integration.optional && integration.status !== 'ready')
-      : [];
+    const integrationLookup = new Map(
+      summary.integrations.map((integration) => [integration.key.toLowerCase(), integration] as const)
+    );
+    const unknownKeys = args.requiredIntegrations.filter(
+      (key) => !integrationLookup.has(key.toLowerCase())
+    );
+    if (unknownKeys.length > 0) {
+      const available = summary.integrations.map((integration) => integration.key).sort();
+      throw new Error(
+        `Unknown integration key(s) specified via --require: ${unknownKeys.join(', ')}. Available keys: ${available.join(', ')}`
+      );
+    }
+
+    const requiredIntegrations = buildIntegrationRequirements(
+      summary.integrations,
+      args.requireOptional,
+      args.requiredIntegrations
+    );
 
     if (args.json) {
       outputJson(
@@ -502,7 +718,7 @@ function main(): void {
         args.failOnWarnings,
         generatedAt,
         durationMs,
-        optionalFailures,
+        requiredIntegrations,
         args.requireOptional
       );
     } else {
@@ -512,7 +728,7 @@ function main(): void {
         args.failOnWarnings,
         generatedAt,
         durationMs,
-        optionalFailures,
+        requiredIntegrations,
         args.requireOptional
       );
     }
@@ -525,7 +741,7 @@ function main(): void {
         args.failOnWarnings,
         generatedAt,
         durationMs,
-        optionalFailures,
+        requiredIntegrations,
         args.requireOptional
       );
     }
