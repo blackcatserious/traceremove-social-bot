@@ -61,7 +61,7 @@ UPSTASH_VECTOR_REST_TOKEN=
 # Environment validation controls
 # Set ENFORCE_ENV_VALIDATION=true to force strict validation even if SKIP_ENV_VALIDATION is also set
 # Set SKIP_ENV_VALIDATION=true to allow startup with placeholder values (development only)
-# CI, Vercel CI, and NODE_ENV=test default to relaxed validation – even when NODE_ENV=production – so automated builds can run without real secrets
+# CI, Vercel CI, npm run build, and NODE_ENV=test default to relaxed validation – even when NODE_ENV=production – so automated and local builds can run without real secrets
 # Relaxed mode injects deterministic placeholder secrets (e.g. a fake Postgres DSN) so automated builds remain safe
 ENFORCE_ENV_VALIDATION=
 SKIP_ENV_VALIDATION=
@@ -99,7 +99,7 @@ GITHUB_OWNER=blackcatserious
 GITHUB_REPO=traceremove-social-bot
 ```
 
-> **Tip:** Automated environments such as `CI=1`, `VERCEL_CI=1`, or `NODE_ENV=test` automatically opt into relaxed validation with safe placeholder values so build pipelines can execute without storing real secrets. Set `ENFORCE_ENV_VALIDATION=true` to require strict validation everywhere, or `SKIP_ENV_VALIDATION=true` locally when you want to bypass checks explicitly.
+> **Tip:** Automated environments such as `CI=1`, `VERCEL_CI=1`, `NODE_ENV=test`, or the `npm run build` lifecycle automatically opt into relaxed validation with safe placeholder values so build pipelines (and local production builds) can execute without storing real secrets. Set `ENFORCE_ENV_VALIDATION=true` to require strict validation everywhere, or `SKIP_ENV_VALIDATION=true` locally when you want to bypass checks explicitly.
 
 ## Folder structure
 

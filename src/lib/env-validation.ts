@@ -161,6 +161,7 @@ function determineValidationMode(env: EnvSource): ValidationMode {
   const skipRequested = isTruthy(env.SKIP_ENV_VALIDATION);
   const runningInCi = isTruthy(env.CI) || isTruthy(env.VERCEL_CI);
   const nodeEnv = (env.NODE_ENV ?? 'development').toLowerCase();
+  const lifecycleEvent = env.npm_lifecycle_event;
 
   if (enforcementRequested) {
     return { type: 'strict' };
@@ -176,6 +177,10 @@ function determineValidationMode(env: EnvSource): ValidationMode {
       type: 'relaxed',
       reason: `a CI environment${reasonSuffix} was detected`,
     };
+  }
+
+  if (lifecycleEvent === 'build') {
+    return { type: 'relaxed', reason: 'npm lifecycle event "build" is running' };
   }
 
   if (nodeEnv === 'production') {
@@ -196,6 +201,7 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
   const skipRequested = isTruthy(env.SKIP_ENV_VALIDATION);
   const runningInCi = isTruthy(env.CI) || isTruthy(env.VERCEL_CI);
   const nodeEnv = (env.NODE_ENV ?? 'development').toLowerCase();
+  const lifecycleEvent = env.npm_lifecycle_event;
 
   const mode = determineValidationMode(env);
   const relaxedReason = mode.type === 'relaxed' ? mode.reason : undefined;
@@ -213,6 +219,17 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
   ) {
     warnings.push(
       'CI environment detected with NODE_ENV=production; relaxed validation is enabled so build pipelines can proceed. Set ENFORCE_ENV_VALIDATION=true to require real secrets.'
+    );
+  } else if (
+    mode.type === 'relaxed' &&
+    lifecycleEvent === 'build' &&
+    nodeEnv === 'production' &&
+    !runningInCi &&
+    !skipRequested &&
+    !enforcementRequested
+  ) {
+    warnings.push(
+      'npm run build detected with NODE_ENV=production; relaxed validation is enabled during compilation. Set ENFORCE_ENV_VALIDATION=true to prevent placeholder secrets in local builds.'
     );
   }
 
