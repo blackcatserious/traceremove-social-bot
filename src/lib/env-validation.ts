@@ -368,6 +368,38 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     );
   }
 
+  const botDryRun = getBoolean('BOT_DRY_RUN', true);
+
+  const twitterReady = missingTwitterKeys.length === 0 && providedTwitterKeys.length === twitterCredentials.length;
+  const facebookReady = Boolean(facebookPageId && facebookAccessToken);
+  const instagramReady = Boolean(instagramBusinessAccountId && instagramAccessToken);
+
+  if (!botDryRun) {
+    if (!twitterReady) {
+      warnings.push(
+        'BOT_DRY_RUN is disabled but Twitter credentials are incomplete. Provide all four Twitter keys before enabling live posting.'
+      );
+    }
+
+    if (!facebookReady) {
+      warnings.push(
+        'BOT_DRY_RUN is disabled but Facebook credentials are incomplete. Provide both FB_PAGE_ID and FB_ACCESS_TOKEN to enable publishing.'
+      );
+    }
+
+    if (!instagramReady) {
+      warnings.push(
+        'BOT_DRY_RUN is disabled but Instagram credentials are incomplete. Provide both IG_BUSINESS_ACCOUNT_ID and IG_ACCESS_TOKEN to enable publishing.'
+      );
+    }
+
+    if (!twitterReady && !facebookReady && !instagramReady) {
+      warnings.push(
+        'BOT_DRY_RUN is disabled, but no social integration is fully configured. The bot will remain in dry-run mode effectively until at least one platform has complete credentials.'
+      );
+    }
+  }
+
   const config: EnvironmentConfig = {
     notion: {
       token: getRequired('NOTION_TOKEN'),
@@ -442,7 +474,7 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
       repo: env.GITHUB_REPO || 'traceremove-social-bot',
     },
     social: {
-      dryRun: getBoolean('BOT_DRY_RUN', true),
+      dryRun: botDryRun,
       twitter: {
         appKey: twitterCredentials[0][1],
         appSecret: twitterCredentials[1][1],

@@ -105,7 +105,7 @@ GITHUB_REPO=traceremove-social-bot
 
 > **Tip:** Automated environments such as `CI=1`, `VERCEL_CI=1`, `NODE_ENV=test`, or the `npm run build` lifecycle automatically opt into relaxed validation with safe placeholder values so build pipelines (and local production builds) can execute without storing real secrets. Set `ENFORCE_ENV_VALIDATION=true` to require strict validation everywhere, or `SKIP_ENV_VALIDATION=true` locally when you want to bypass checks explicitly.
 
-The `npm run check:env` helper now reports which variables received placeholder secrets and highlights partial configurations (for example, when only one of the Upstash Redis credentials is present, S3 storage is missing a key, or a social integration is only partially configured). Use this output to plug the gaps before deploying.
+The `npm run check:env` helper now reports which variables received placeholder secrets and highlights partial configurations (for example, when only one of the Upstash Redis credentials is present, S3 storage is missing a key, or a social integration is only partially configured). If you set `BOT_DRY_RUN=false`, the validator also warns when no network has the full credential set required for live publishing so you can address the gaps before deploying.
 
 ## Folder structure
 
