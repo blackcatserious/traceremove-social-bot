@@ -8,10 +8,13 @@ import { getEnvironmentValidationSummary } from '../src/lib/env-validation.ts';
 
 const { loadEnvConfig } = nextEnv;
 
+type ValidationOverride = 'strict' | 'relaxed';
+
 type CliArgs = {
   json: boolean;
   dotenvFiles: string[];
   exampleFile?: string;
+  modeOverride?: ValidationOverride;
 };
 
 const BOOLEAN_FALSE_DEFAULTS = new Set([
@@ -87,6 +90,22 @@ function parseArgs(argv: string[]): CliArgs {
       continue;
     }
 
+    if (token === '--strict') {
+      if (args.modeOverride === 'relaxed') {
+        throw new Error('Cannot combine --strict with --relaxed');
+      }
+      args.modeOverride = 'strict';
+      continue;
+    }
+
+    if (token === '--relaxed') {
+      if (args.modeOverride === 'strict') {
+        throw new Error('Cannot combine --relaxed with --strict');
+      }
+      args.modeOverride = 'relaxed';
+      continue;
+    }
+
     if (token === '--help' || token === '-h') {
       printHelp();
       process.exit(0);
@@ -107,7 +126,9 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function printHelp(): void {
-  console.log(`Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]]\n\nOptions:\n  --json              Output results as JSON\n  --dotenv <path>     Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]    Validate an example env file (defaults to .env.example) without touching local secrets\n  -h, --help          Show this help message`);
+  console.log(
+    `Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]\n\nOptions:\n  --json            Output results as JSON\n  --dotenv <path>   Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]  Validate an example env file (defaults to .env.example) without touching local secrets\n  --strict          Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)\n  --relaxed         Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)\n  -h, --help        Show this help message`
+  );
 }
 
 function resolveFilePath(target: string, projectDir: string): string {
@@ -123,6 +144,20 @@ function assertFileExists(filePath: string): void {
 function loadEnvFile(filePath: string): Record<string, string> {
   const contents = fs.readFileSync(filePath, 'utf8');
   return dotenv.parse(contents);
+}
+
+function applyValidationOverride(env: NodeJS.ProcessEnv, override?: ValidationOverride): void {
+  if (!override) {
+    return;
+  }
+
+  if (override === 'strict') {
+    env.ENFORCE_ENV_VALIDATION = 'true';
+    env.SKIP_ENV_VALIDATION = 'false';
+  } else {
+    env.ENFORCE_ENV_VALIDATION = 'false';
+    env.SKIP_ENV_VALIDATION = 'true';
+  }
 }
 
 function applyExamplePlaceholders(parsed: Record<string, string>): NodeJS.ProcessEnv {
@@ -169,6 +204,7 @@ function prepareEnvironment(args: CliArgs): { env: NodeJS.ProcessEnv; loadedFile
     const parsed = loadEnvFile(examplePath);
     const exampleEnv = applyExamplePlaceholders(parsed);
     loaded.add(path.relative(projectDir, examplePath));
+    applyValidationOverride(exampleEnv, args.modeOverride);
     return { env: exampleEnv, loadedFiles: Array.from(loaded) };
   }
 
@@ -189,6 +225,8 @@ function prepareEnvironment(args: CliArgs): { env: NodeJS.ProcessEnv; loadedFile
       loaded.add(path.relative(projectDir, envPath));
     }
   }
+
+  applyValidationOverride(env, args.modeOverride);
 
   return { env, loadedFiles: Array.from(loaded) };
 }
