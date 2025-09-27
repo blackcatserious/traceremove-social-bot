@@ -18,7 +18,7 @@ The bot pulls content from a Notion database, formats it into short posts with a
    # or
    npm install
    ```
-2. **Configure your environment variables** – copy `.env.example` to `.env` and fill out the required keys for Notion and the social networks.  See the file for details on each variable. You can verify your setup at any time with `npm run check:env`, which prints the current validation mode, warnings, and any missing variables.
+2. **Configure your environment variables** – copy `.env.example` to `.env` and fill out the required keys for Notion and the social networks.  See the file for details on each variable. You can verify your setup at any time with `npm run check:env`, which loads the same `.env*` files that Next.js would, prints the current validation mode, warnings, any missing variables, and returns a non-zero exit code if something is misconfigured.  For JSON output you can run `npm run check:env -- --json` (handy for CI pipelines).
 3. **Set up your Notion database** – create a database with the columns described in this README and share it with the integration token used in `NOTION_TOKEN`.
 4. **Deploy on Vercel** – import the repository into Vercel.  The included `vercel.json` file schedules a cron job to hit `/api/cron/publish` every hour.
 
