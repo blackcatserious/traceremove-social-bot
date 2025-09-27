@@ -19,7 +19,7 @@ The bot pulls content from a Notion database, formats it into short posts with a
    npm install
    ```
 2. **Configure your environment variables** – copy `.env.example` to `.env` and fill out the required keys for Notion and the social networks.  See the file for details on each variable.
-3. **Set up your Notion database** – create a database with the columns described in this README and share it with the integration token used in `NOTION_API_KEY`.
+3. **Set up your Notion database** – create a database with the columns described in this README and share it with the integration token used in `NOTION_TOKEN`.
 4. **Deploy on Vercel** – import the repository into Vercel.  The included `vercel.json` file schedules a cron job to hit `/api/cron/publish` every hour.
 
 ## Notion database schema
@@ -43,11 +43,28 @@ The application expects a Notion database with the following properties:
 The application reads configuration from environment variables.  Copy `.env.example` to `.env` and adjust the values:
 
 ```env
-NOTION_API_KEY=your-notion-integration-secret
+NOTION_TOKEN=your-notion-integration-secret
 NOTION_DATABASE_ID=your-notion-database-id
+NOTION_DB_REGISTRY=6d3da5a01186475d8c2b794cca147a86
+NOTION_DB_CASES=25cef6a76fa5800b8241f8ed4cd3be33
+NOTION_DB_FINANCE=25cef6a76fa580eb912ff8cfca54155e
+NOTION_DB_PUBLISHING=402cc41633384d35b30ec1ab7c3185da
 
 BOT_DRY_RUN=true
 TIMEZONE=Europe/Belgrade
+
+# Core data stores
+PG_DSN=postgresql://user:password@host:5432/database
+UPSTASH_VECTOR_REST_URL=https://xxxxx.upstash.io
+UPSTASH_VECTOR_REST_TOKEN=
+
+# Environment validation controls
+# Set ENFORCE_ENV_VALIDATION=true to force strict validation even if SKIP_ENV_VALIDATION is also set
+# Set SKIP_ENV_VALIDATION=true to allow startup with placeholder values (development only)
+# CI, Vercel CI, and NODE_ENV=test use relaxed validation for non-production builds; production builds stay strict unless SKIP_ENV_VALIDATION=true
+# Relaxed mode injects deterministic placeholder secrets (e.g. a fake Postgres DSN) so automated builds remain safe
+ENFORCE_ENV_VALIDATION=
+SKIP_ENV_VALIDATION=
 
 # X / Twitter
 TWITTER_APP_KEY=
@@ -67,12 +84,22 @@ IG_ACCESS_TOKEN=
 OPENAI_API_KEY=
 LLM_MODE=off
 
+# Admin & automation
+ADMIN_TOKEN=
+CRON_SECRET=
+REINDEX_TOKEN=
+
+# Vector ETL webhook (optional)
+ETL_WEBHOOK=
+
 # GitHub integration
 GITHUB_TOKEN=
 GITHUB_WEBHOOK_SECRET=
 GITHUB_OWNER=blackcatserious
 GITHUB_REPO=traceremove-social-bot
 ```
+
+> **Tip:** Automated environments such as `CI=1`, `VERCEL_CI=1`, or `NODE_ENV=test` automatically opt into relaxed validation with safe placeholder values for non-production builds. Production builds keep strict checks unless you explicitly set `SKIP_ENV_VALIDATION=true`. You can still force strict validation everywhere with `ENFORCE_ENV_VALIDATION=true`.
 
 ## Folder structure
 

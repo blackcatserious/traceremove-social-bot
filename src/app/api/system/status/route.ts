@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateEnvironment } from '@/lib/config';
+import { getEnvironmentValidationSummary } from '@/lib/env-validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const validation = validateEnvironment();
+    const validation = getEnvironmentValidationSummary();
     
     const systemStatus = {
       status: validation.valid ? 'operational' : 'degraded',
@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
         valid: validation.valid,
         missing: validation.missing,
         warnings: validation.warnings,
+        mode: validation.mode.type,
+        reason: validation.mode.type === 'relaxed' ? validation.mode.reason : undefined,
       },
       services: {
         api: 'operational',
