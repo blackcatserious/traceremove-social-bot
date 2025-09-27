@@ -16,6 +16,7 @@ type CliArgs = {
   exampleFile?: string;
   modeOverride?: ValidationOverride;
   failOnWarnings: boolean;
+  outputPath?: string;
 };
 
 const BOOLEAN_FALSE_DEFAULTS = new Set([
@@ -119,6 +120,25 @@ function parseArgs(argv: string[]): CliArgs {
       continue;
     }
 
+    if (token === '--output' || token === '-o') {
+      const nextToken = argv[index + 1];
+      if (!nextToken || nextToken.startsWith('-')) {
+        throw new Error('Missing value for --output');
+      }
+      args.outputPath = nextToken;
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith('--output=')) {
+      const [, value] = token.split('=');
+      if (!value) {
+        throw new Error('Missing value for --output');
+      }
+      args.outputPath = value;
+      continue;
+    }
+
     if (token === '--help' || token === '-h') {
       printHelp();
       process.exit(0);
@@ -135,12 +155,16 @@ function parseArgs(argv: string[]): CliArgs {
     throw new Error('Cannot combine --dotenv with --example. Choose one approach for loading environment variables.');
   }
 
+  if (args.outputPath && args.outputPath.trim() === '') {
+    throw new Error('Missing value for --output');
+  }
+
   return args;
 }
 
 function printHelp(): void {
   console.log(
-    `Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]\n\nOptions:\n  --json            Output results as JSON\n  --dotenv <path>   Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]  Validate an example env file (defaults to .env.example) without touching local secrets\n  --strict          Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)\n  --relaxed         Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)\n  --fail-on-warnings Exit with a non-zero status code if validation warnings are present\n  -h, --help        Show this help message`
+    `Usage: npm run check:env [-- --json] [-- --dotenv <path> ...] [-- --example [path]] [-- --strict|--relaxed]\n\nOptions:\n  --json            Output results as JSON\n  --dotenv <path>   Load one or more additional env files on top of the standard Next.js resolution\n  --example [path]  Validate an example env file (defaults to .env.example) without touching local secrets\n  --strict          Force strict validation (sets ENFORCE_ENV_VALIDATION=true for the run)\n  --relaxed         Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)\n  --fail-on-warnings Exit with a non-zero status code if validation warnings are present\n  --output <path>   Write the JSON summary payload to a file (useful for CI artifacts)\n  -h, --help        Show this help message`
   );
 }
 
@@ -244,12 +268,12 @@ function prepareEnvironment(args: CliArgs): { env: NodeJS.ProcessEnv; loadedFile
   return { env, loadedFiles: Array.from(loaded) };
 }
 
-function outputJson(
+function createSummaryPayload(
   summary: ReturnType<typeof getEnvironmentValidationSummary>,
   loadedFiles: string[],
   failOnWarnings: boolean
-): void {
-  const payload = {
+) {
+  return {
     valid: summary.valid,
     mode: summary.mode,
     warnings: summary.warnings,
@@ -260,10 +284,31 @@ function outputJson(
     loadedEnvFiles: loadedFiles,
     failedDueToWarnings: failOnWarnings && summary.warnings.length > 0,
   };
+}
+
+function outputJson(
+  summary: ReturnType<typeof getEnvironmentValidationSummary>,
+  loadedFiles: string[],
+  failOnWarnings: boolean
+): void {
+  const payload = createSummaryPayload(summary, loadedFiles, failOnWarnings);
   console.log(JSON.stringify(payload, null, 2));
   if (!summary.valid || (failOnWarnings && summary.warnings.length > 0)) {
     process.exitCode = 1;
   }
+}
+
+function writeSummaryToFile(
+  outputPath: string,
+  summary: ReturnType<typeof getEnvironmentValidationSummary>,
+  loadedFiles: string[],
+  failOnWarnings: boolean
+): void {
+  const projectDir = process.cwd();
+  const resolvedPath = resolveFilePath(outputPath, projectDir);
+  const payload = createSummaryPayload(summary, loadedFiles, failOnWarnings);
+  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+  fs.writeFileSync(resolvedPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 }
 
 function outputHuman(
@@ -356,6 +401,10 @@ function main(): void {
       outputJson(summary, loadedFiles, args.failOnWarnings);
     } else {
       outputHuman(summary, loadedFiles, args.failOnWarnings);
+    }
+
+    if (args.outputPath) {
+      writeSummaryToFile(args.outputPath, summary, loadedFiles, args.failOnWarnings);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
