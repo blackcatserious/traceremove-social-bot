@@ -125,7 +125,15 @@ export interface IntegrationReadinessStats {
   requiredReady: number;
   optionalTotal: number;
   optionalReady: number;
+  readyPercentage: number;
+  requiredReadyPercentage: number;
+  optionalReadyPercentage: number;
 }
+
+type IntegrationReadinessCounts = Omit<
+  IntegrationReadinessStats,
+  'readyPercentage' | 'requiredReadyPercentage' | 'optionalReadyPercentage'
+>;
 
 export interface EnvironmentValidationResult {
   config: EnvironmentConfig;
@@ -159,6 +167,13 @@ export class EnvironmentValidationError extends Error {
     super(message);
     this.name = 'EnvironmentValidationError';
   }
+}
+
+function calculatePercentage(count: number, total: number): number {
+  if (total === 0) {
+    return 0;
+  }
+  return Math.round((count / total) * 1000) / 10;
 }
 
 const RELAXED_PLACEHOLDERS: Record<string, string> = {
@@ -708,7 +723,7 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
     { optional: true }
   );
 
-  const integrationStats = integrations.reduce<IntegrationReadinessStats>(
+  const integrationCounts = integrations.reduce<IntegrationReadinessCounts>(
     (acc, integration) => {
       acc.total += 1;
       acc[integration.status] += 1;
@@ -737,6 +752,19 @@ export function performEnvironmentValidation(env: EnvSource = process.env): Envi
       optionalReady: 0,
     }
   );
+
+  const integrationStats: IntegrationReadinessStats = {
+    ...integrationCounts,
+    readyPercentage: calculatePercentage(integrationCounts.ready, integrationCounts.total),
+    requiredReadyPercentage: calculatePercentage(
+      integrationCounts.requiredReady,
+      integrationCounts.requiredTotal
+    ),
+    optionalReadyPercentage: calculatePercentage(
+      integrationCounts.optionalReady,
+      integrationCounts.optionalTotal
+    ),
+  };
 
   return {
     config,

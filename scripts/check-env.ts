@@ -49,6 +49,13 @@ function createPlaceholder(key: string): string {
   return `example-${key.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 }
 
+function formatPercentage(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '0%';
+  }
+  return value % 1 === 0 ? `${value.toFixed(0)}%` : `${value.toFixed(1)}%`;
+}
+
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { json: false, dotenvFiles: [], failOnWarnings: false };
   for (let index = 2; index < argv.length; index += 1) {
@@ -310,10 +317,10 @@ function outputHuman(
 
     const stats = summary.integrationStats;
     console.log(
-      `\nSummary: ${stats.ready}/${stats.total} ready, ${stats.partial} partial, ${stats.missing} missing, ${stats.placeholder} placeholder-only`
+      `\nSummary: ${stats.ready}/${stats.total} ready (${formatPercentage(stats.readyPercentage)}), ${stats.partial} partial, ${stats.missing} missing, ${stats.placeholder} placeholder-only`
     );
     console.log(
-      `Required integrations ready: ${stats.requiredReady}/${stats.requiredTotal}. Optional integrations ready: ${stats.optionalReady}/${stats.optionalTotal}.`
+      `Required integrations ready: ${stats.requiredReady}/${stats.requiredTotal} (${formatPercentage(stats.requiredReadyPercentage)}). Optional integrations ready: ${stats.optionalReady}/${stats.optionalTotal} (${formatPercentage(stats.optionalReadyPercentage)}).`
     );
   }
 
