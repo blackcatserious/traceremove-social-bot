@@ -362,16 +362,57 @@ function printHelp(): void {
   console.log(message);
 }
 
+function expandEnvironmentVariables(target: string, env: NodeJS.ProcessEnv): string {
+  let result = target.replace(/\$(\w+)|\$\{([^}]+)\}/g, (match, simple, braced) => {
+    const key = (simple ?? braced ?? '').trim();
+    if (!key) {
+      return match;
+    }
+    const value = env[key];
+    return typeof value === 'string' && value.length > 0 ? value : match;
+  });
+
+  result = result.replace(/%([^%]+)%/g, (match, variable) => {
+    const key = variable.trim();
+    if (!key) {
+      return match;
+    }
+    const value = env[key];
+    return typeof value === 'string' && value.length > 0 ? value : match;
+  });
+
+  return result;
+}
+
 function resolveFilePath(target: string, projectDir: string): string {
   if (target === '~') {
     return os.homedir();
   }
 
   if (target.startsWith('~/')) {
-    return path.join(os.homedir(), target.slice(2));
+    const remainder = expandEnvironmentVariables(target.slice(2), process.env).replace(
+      /^[\\/]+/,
+      ''
+    );
+    return path.join(os.homedir(), remainder);
   }
 
-  return path.isAbsolute(target) ? target : path.join(projectDir, target);
+  const expanded = expandEnvironmentVariables(target, process.env);
+
+  if (expanded === '~') {
+    return os.homedir();
+  }
+
+  if (expanded.startsWith('~/')) {
+    const remainder = expanded.slice(2).replace(/^[\\/]+/, '');
+    return path.join(os.homedir(), remainder);
+  }
+
+  if (/^[a-zA-Z]:[\\/]/.test(expanded) || expanded.startsWith('\\\\')) {
+    return expanded;
+  }
+
+  return path.isAbsolute(expanded) ? expanded : path.join(projectDir, expanded);
 }
 
 function assertFileExists(filePath: string): void {
