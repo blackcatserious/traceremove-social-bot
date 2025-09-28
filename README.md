@@ -18,8 +18,8 @@ The bot pulls content from a Notion database, formats it into short posts with a
    # or
    npm install
    ```
-2. **Configure your environment variables** – copy `.env.example` to `.env` and fill out the required keys for Notion and the social networks.  See the file for details on each variable. You can verify your setup at any time with `npm run check:env`, which loads the same `.env*` files that Next.js would, prints the current validation mode, highlights integration readiness (ready, missing, partial, or placeholder-only), surfaces warnings, summarizes readiness counts (e.g. how many integrations are fully ready vs missing), lists any missing variables, and returns a non-zero exit code if something is misconfigured.  For JSON output you can run `npm run check:env -- --json` (handy for CI pipelines). The checker also accepts one or more `--dotenv path/to/file` arguments to layer in specific env files and `--example` (optionally `--example path/to/example`) to validate that your example file lists every required variable without touching local secrets.  Pass `--strict` to force strict validation for that run or `--relaxed` to inject placeholders without toggling environment variables globally.  Add `--fail-on-warnings` if you want the command to exit non-zero whenever warnings (like placeholder secrets) are present, toggle `--require-optional` when you need every optional integration enforced as a hard requirement, use `--require slack,twitter` (repeat or provide a comma-separated list) to demand readiness for specific integrations, add `--output path/to/report.json` to persist the JSON summary – the saved payload now includes metadata like the generation timestamp, runtime in milliseconds, and the set of integrations that were enforced during the run so CI can track validation latency alongside the readiness details – and pair `--silent` with `--output` when you need a quiet run (for example, CI jobs that only care about the exit code and stored report). Paths beginning with `~/` are expanded against your home directory so you can drop reports into a standard location without computing the absolute path manually, and both Unix-style (`$VAR`/`${VAR}`) and Windows-style (`%VAR%`) environment variables embedded in the path are resolved before the file is written. `--silent` is intentionally incompatible with `--json`, so use the file output option when you want machine-readable data without console noise.
-3. **Set up your Notion database** – create a database with the columns described in this README and share it with the integration token used in `NOTION_TOKEN`.
+2. **Configure your environment variables** – copy `.env.example` to `.env` and fill out the required keys for Notion and the social networks.  See the file for details on each variable.
+3. **Set up your Notion database** – create a database with the columns described in this README and share it with the integration token used in `NOTION_API_KEY`.
 4. **Deploy on Vercel** – import the repository into Vercel.  The included `vercel.json` file schedules a cron job to hit `/api/cron/publish` every hour.
 
 ## Notion database schema
@@ -43,32 +43,11 @@ The application expects a Notion database with the following properties:
 The application reads configuration from environment variables.  Copy `.env.example` to `.env` and adjust the values:
 
 ```env
-NOTION_TOKEN=your-notion-integration-secret
+NOTION_API_KEY=your-notion-integration-secret
 NOTION_DATABASE_ID=your-notion-database-id
-NOTION_DB_REGISTRY=6d3da5a01186475d8c2b794cca147a86
-NOTION_DB_CASES=25cef6a76fa5800b8241f8ed4cd3be33
-NOTION_DB_FINANCE=25cef6a76fa580eb912ff8cfca54155e
-NOTION_DB_PUBLISHING=402cc41633384d35b30ec1ab7c3185da
 
 BOT_DRY_RUN=true
 TIMEZONE=Europe/Belgrade
-
-# Core data stores
-PG_DSN=postgresql://user:password@host:5432/database
-UPSTASH_VECTOR_REST_URL=https://xxxxx.upstash.io
-UPSTASH_VECTOR_REST_TOKEN=
-
-# Optional Upstash Redis cache (requires both values)
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
-
-# Environment validation controls
-# Set ENFORCE_ENV_VALIDATION=true to force strict validation even if SKIP_ENV_VALIDATION is also set
-# Set SKIP_ENV_VALIDATION=true to allow startup with placeholder values (development only)
-# CI, Vercel CI, npm run build, and NODE_ENV=test default to relaxed validation – even when NODE_ENV=production – so automated and local builds can run without real secrets
-# Relaxed mode injects deterministic placeholder secrets (e.g. a fake Postgres DSN) so automated builds remain safe
-ENFORCE_ENV_VALIDATION=
-SKIP_ENV_VALIDATION=
 
 # X / Twitter
 TWITTER_APP_KEY=
@@ -88,14 +67,6 @@ IG_ACCESS_TOKEN=
 OPENAI_API_KEY=
 LLM_MODE=off
 
-# Admin & automation
-ADMIN_TOKEN=
-CRON_SECRET=
-REINDEX_TOKEN=
-
-# Vector ETL webhook (optional)
-ETL_WEBHOOK=
-
 # GitHub integration
 GITHUB_TOKEN=
 GITHUB_WEBHOOK_SECRET=
@@ -103,11 +74,13 @@ GITHUB_OWNER=blackcatserious
 GITHUB_REPO=traceremove-social-bot
 ```
 
-> **Tip:** Automated environments such as `CI=1`, `VERCEL_CI=1`, `NODE_ENV=test`, or the `npm run build` lifecycle automatically opt into relaxed validation with safe placeholder values so build pipelines (and local production builds) can execute without storing real secrets. Set `ENFORCE_ENV_VALIDATION=true` to require strict validation everywhere, or `SKIP_ENV_VALIDATION=true` locally when you want to bypass checks explicitly.
+You can verify that the required variables are present by running the environment check script:
 
-The `npm run check:env` helper now reports which variables received placeholder secrets and includes an integration readiness table so you can see at a glance which services are **ready**, **partial**, **missing**, or running entirely on placeholder values. Beneath the table, the CLI prints aggregate counts (total ready/missing/partial/placeholder-only) and readiness percentages for the whole stack, required integrations, and optional integrations, making it easy to evaluate launch readiness without scanning every row. Partial configurations are still called out explicitly (for example, when only one of the Upstash Redis credentials is present, S3 storage is missing a key, or a social integration is only partially configured). If you set `BOT_DRY_RUN=false`, the validator also warns when no network has the full credential set required for live publishing so you can address the gaps before deploying. Use `--strict` or `--relaxed` flags on the CLI to force a one-off validation mode without mutating the surrounding shell environment, combine them with `--fail-on-warnings` if you want relaxed runs to still halt on placeholder-heavy setups, toggle `--require-optional` when optional integrations must be ready before you proceed, and pass `--require integration-key` (repeatable or comma-separated) to demand readiness for individual integrations such as `slack`, `cache`, or `instagram`. Add `--output path/to/report.json` when you need the JSON payload saved for audit logs or CI artifacts – the written JSON mirrors the CLI payload, records when the report was generated, how long the run took, and captures which integrations were enforced through the `requiredIntegrations`, `missingRequiredIntegrations`, `failedDueToIntegrationRequirements`, and (when `--require-optional` is present) `optionalIntegrationsRequired`, `failedDueToOptionalRequirements`, and `missingOptionalIntegrations` fields – and pair `--silent` with `--output` when you want the command to run quietly (great for CI logs that only care about exit codes and stored artifacts). Paths beginning with `~/` are expanded before writing so you can keep CI artifacts in a familiar location like `~/artifacts/check-env.json`, and both Unix (`$VAR`/`${VAR}`) and Windows (`%VAR%`) environment variables embedded in the path are interpolated so pipelines can lean on existing directory variables. Because `--silent` suppresses console output, it cannot be combined with `--json`; rely on the saved report instead when you need machine-readable data without noise.
+```bash
+npm run check:env
+```
 
-In addition to missing variable checks, the validator inspects sensitive keys for common placeholder markers such as `changeme`, `replace-me`, `sample`, `example`, `insert-here`, `abc123`, or repeated characters/punctuation. When these markers or other obvious stand-ins appear in secrets or access tokens the checker emits a warning so you can swap in the real credential before deploying.
+Pass `-- --json` to print the summary as JSON. Use `-- --output <path>` to save that JSON to disk; the checker expands Unix-style (`$VAR`/`${VAR}`), Windows-style (`%VAR%`), and home-relative (`~`) segments before resolving the final path.
 
 ## Folder structure
 
