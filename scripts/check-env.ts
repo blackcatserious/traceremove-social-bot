@@ -29,6 +29,7 @@ type CliArgs = {
   outputPath?: string;
   requireOptional: boolean;
   requiredIntegrations: string[];
+  silent: boolean;
 };
 
 const BOOLEAN_FALSE_DEFAULTS = new Set([
@@ -167,6 +168,7 @@ function parseArgs(argv: string[]): CliArgs {
     failOnWarnings: false,
     requireOptional: false,
     requiredIntegrations: [],
+    silent: false,
   };
 
   function addRequiredIntegrations(value: string | undefined, flag: string): void {
@@ -244,6 +246,11 @@ function parseArgs(argv: string[]): CliArgs {
 
     if (token === '--fail-on-warnings' || token === '--fail-on-warning') {
       args.failOnWarnings = true;
+      continue;
+    }
+
+    if (token === '--silent') {
+      args.silent = true;
       continue;
     }
 
@@ -327,6 +334,10 @@ function parseArgs(argv: string[]): CliArgs {
     throw new Error('Missing value for --output');
   }
 
+  if (args.silent && args.json) {
+    throw new Error('Cannot combine --silent with --json. Use --output to save the JSON summary without printing it.');
+  }
+
   return args;
 }
 
@@ -342,8 +353,9 @@ function printHelp(): void {
     '  --relaxed           Force relaxed validation (sets SKIP_ENV_VALIDATION=true for the run)',
     '  --fail-on-warnings  Exit with a non-zero status code if validation warnings are present',
     '  --require-optional  Treat optional integrations as required and fail if any are not ready',
-    '  --require <keys>   Require specific integrations by key (comma separated or repeat the flag)',
+    '  --require <keys>    Require specific integrations by key (comma separated or repeat the flag)',
     '  --output <path>     Write the JSON summary payload to a file (useful for CI artifacts)',
+    '  --silent            Suppress human-readable output (pair with --output for quiet CI runs)',
     '  -h, --help          Show this help message',
   ].join('\n');
   console.log(message);
@@ -571,36 +583,39 @@ function outputHuman(
   generatedAt: string,
   durationMs: number,
   requiredIntegrations: IntegrationRequirement[],
-  requireOptional: boolean
+  requireOptional: boolean,
+  silent: boolean
 ): void {
+  const log = silent ? (..._args: unknown[]) => {} : console.log.bind(console);
+
   if (loadedFiles.length > 0) {
-    console.log('Loaded environment files:');
+    log('Loaded environment files:');
     for (const file of loadedFiles) {
-      console.log(`  • ${file}`);
+      log(`  • ${file}`);
     }
-    console.log('');
+    log('');
   }
 
   const modeLabel = summary.mode.type === 'relaxed'
     ? `relaxed (${summary.mode.reason ?? 'no reason provided'})`
     : 'strict';
 
-  console.log('Environment validation mode:', modeLabel);
-  console.log(`Report generated at ${generatedAt} (took ${durationMs}ms).`);
+  log('Environment validation mode:', modeLabel);
+  log(`Report generated at ${generatedAt} (took ${durationMs}ms).`);
 
   if (summary.warnings.length > 0) {
-    console.log('\nWarnings:');
+    log('\nWarnings:');
     for (const warning of summary.warnings) {
-      console.log(`  • ${warning}`);
+      log(`  • ${warning}`);
     }
   }
 
   if (failOnWarnings && summary.warnings.length > 0) {
-    console.log('\nValidation warnings are treated as errors (--fail-on-warnings).');
+    log('\nValidation warnings are treated as errors (--fail-on-warnings).');
   }
 
   if (summary.integrations.length > 0) {
-    console.log('\nIntegration readiness:');
+    log('\nIntegration readiness:');
     for (const integration of summary.integrations) {
       const optionalLabel = integration.optional ? ' (optional)' : '';
       const statusLabel =
@@ -615,14 +630,14 @@ function outputHuman(
         notes.push(`placeholder values for ${integration.placeholders.join(', ')}`);
       }
       const noteText = notes.length > 0 ? ` — ${notes.join('; ')}` : '';
-      console.log(`  • ${integration.label}${optionalLabel}: ${statusLabel}${noteText}`);
+      log(`  • ${integration.label}${optionalLabel}: ${statusLabel}${noteText}`);
     }
 
     const stats = summary.integrationStats;
-    console.log(
+    log(
       `\nSummary: ${stats.ready}/${stats.total} ready (${formatPercentage(stats.readyPercentage)}), ${stats.partial} partial, ${stats.missing} missing, ${stats.placeholder} placeholder-only`
     );
-    console.log(
+    log(
       `Required integrations ready: ${stats.requiredReady}/${stats.requiredTotal} (${formatPercentage(stats.requiredReadyPercentage)}). Optional integrations ready: ${stats.optionalReady}/${stats.optionalTotal} (${formatPercentage(stats.optionalReadyPercentage)}).`
     );
   }
@@ -634,9 +649,9 @@ function outputHuman(
     const sourceSummary = summarizeRequirementSources(requireOptional, requiredIntegrations);
 
     if (requirementFailures.length === 0) {
-      console.log(`\nIntegrations required for this run${sourceSummary} are ready.`);
+      log(`\nIntegrations required for this run${sourceSummary} are ready.`);
     } else {
-      console.log(`\nIntegrations required for this run${sourceSummary} are not ready:`);
+      log(`\nIntegrations required for this run${sourceSummary} are not ready:`);
       for (const entry of requirementFailures) {
         const notes: string[] = [];
         if (entry.integration.missing.length > 0) {
@@ -650,7 +665,7 @@ function outputHuman(
           notes.push(reasonText);
         }
         const detail = notes.length > 0 ? ` — ${notes.join('; ')}` : '';
-        console.log(`  • ${entry.integration.label} (${entry.integration.status})${detail}`);
+        log(`  • ${entry.integration.label} (${entry.integration.status})${detail}`);
       }
     }
   }
@@ -660,27 +675,27 @@ function outputHuman(
   );
 
   if (summary.placeholders.length > 0) {
-    console.log('\nPlaceholder values injected for:');
+    log('\nPlaceholder values injected for:');
     for (const key of summary.placeholders) {
-      console.log(`  • ${key}`);
+      log(`  • ${key}`);
     }
   }
 
   if (summary.missing.length > 0) {
-    console.log('\nMissing variables:');
+    log('\nMissing variables:');
     for (const variable of summary.missing) {
-      console.log(`  • ${variable}`);
+      log(`  • ${variable}`);
     }
-    console.log('\nEnvironment validation failed.');
+    log('\nEnvironment validation failed.');
     process.exitCode = 1;
   } else if (requirementFailureTriggered) {
-    console.log('\nEnvironment validation failed because required integrations were not ready.');
+    log('\nEnvironment validation failed because required integrations were not ready.');
     process.exitCode = 1;
   } else if (failOnWarnings && summary.warnings.length > 0) {
-    console.log('\nEnvironment validation failed due to warnings.');
+    log('\nEnvironment validation failed due to warnings.');
     process.exitCode = 1;
   } else {
-    console.log('\nAll required environment variables are set.');
+    log('\nAll required environment variables are set.');
   }
 }
 
@@ -729,7 +744,8 @@ function main(): void {
         generatedAt,
         durationMs,
         requiredIntegrations,
-        args.requireOptional
+        args.requireOptional,
+        args.silent
       );
     }
 
