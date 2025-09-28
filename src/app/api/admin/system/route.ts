@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         },
         databases: {
           postgresql: !!config.database.pgDsn,
-          vector: !!config.vector.qdrantUrl,
+          vector: !!config.vector.restUrl,
           cache: !!config.cache.redisUrl,
         },
         etl: {

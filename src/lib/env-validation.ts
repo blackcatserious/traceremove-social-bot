@@ -1,15 +1,11 @@
+export type ValidationMode =
+  | { type: 'strict'; reason?: undefined }
+  | { type: 'relaxed'; reason: string };
+
 export interface EnvironmentConfig {
-  openai: {
-    apiKey: string;
-  };
-  multiModel: {
-    anthropic?: string;
-    google?: string;
-    mistral?: string;
-    groq?: string;
-  };
   notion: {
     token: string;
+    legacyDatabaseId?: string;
     databases: {
       registry: string;
       cases: string;
@@ -17,14 +13,32 @@ export interface EnvironmentConfig {
       publishing: string;
     };
   };
+  rag: {
+    sitemaps: {
+      dev: string;
+      com: string;
+      io: string;
+    };
+  };
+  openai: {
+    apiKey: string;
+    llmMode: string;
+  };
+  multiModel: {
+    anthropic?: string;
+    google?: string;
+    mistral?: string;
+    groq?: string;
+    cohere?: string;
+  };
   database: {
     pgDsn: string;
     poolMin?: number;
     poolMax?: number;
   };
   vector: {
-    qdrantUrl: string;
-    qdrantApiKey: string;
+    restUrl: string;
+    restToken: string;
     collectionName?: string;
     dimension?: number;
   };
@@ -35,67 +49,388 @@ export interface EnvironmentConfig {
     ttlDatabase?: number;
     maxSize?: number;
   };
+  storage?: {
+    endpoint: string;
+    bucket: string;
+    accessKey: string;
+    secretKey: string;
+  };
   security: {
+    adminToken: string;
     cronSecret: string;
-    rateLimitRequests?: number;
-    rateLimitWindow?: number;
+    reindexToken?: string;
+    slackSigningSecret?: string;
+    slackBotToken?: string;
+    githubWebhookSecret?: string;
+  };
+  scheduler: {
+    timezone: string;
+    cronPostLimit: number;
+  };
+  github: {
+    token?: string;
+    owner: string;
+    repo: string;
+  };
+  social: {
+    dryRun: boolean;
+    twitter: {
+      appKey?: string;
+      appSecret?: string;
+      accessToken?: string;
+      accessSecret?: string;
+    };
+    facebook: {
+      pageId?: string;
+      accessToken?: string;
+    };
+    instagram: {
+      businessAccountId?: string;
+      accessToken?: string;
+    };
   };
   monitoring: {
-    logLevel?: string;
-    logFormat?: string;
-    enablePerformanceTracking?: boolean;
-    enableHealthChecks?: boolean;
+    logLevel: string;
+    logFormat: string;
+    enablePerformanceTracking: boolean;
+    enableHealthChecks: boolean;
   };
   etl: {
-    fullSyncInterval?: number;
-    incrementalSyncInterval?: number;
-    batchSize?: number;
-    maxRetries?: number;
+    fullSyncInterval: number;
+    incrementalSyncInterval: number;
+    batchSize: number;
+    maxRetries: number;
+    webhook?: string;
   };
   development: {
-    debugMode?: boolean;
-    mockExternalApis?: boolean;
-    skipHealthChecks?: boolean;
+    debugMode: boolean;
+    mockExternalApis: boolean;
+    skipHealthChecks: boolean;
+  };
+  orm: {
+    defaultLanguage: string;
+  };
+  xai: {
+    apiKey?: string;
   };
 }
 
+export interface IntegrationReadinessStats {
+  total: number;
+  ready: number;
+  partial: number;
+  missing: number;
+  placeholder: number;
+  requiredTotal: number;
+  requiredReady: number;
+  optionalTotal: number;
+  optionalReady: number;
+  readyPercentage: number;
+  requiredReadyPercentage: number;
+  optionalReadyPercentage: number;
+}
+
+type IntegrationReadinessCounts = Omit<
+  IntegrationReadinessStats,
+  'readyPercentage' | 'requiredReadyPercentage' | 'optionalReadyPercentage'
+>;
+
+export interface EnvironmentValidationResult {
+  config: EnvironmentConfig;
+  missing: string[];
+  warnings: string[];
+  mode: ValidationMode;
+  placeholders: string[];
+  integrations: IntegrationSummaryEntry[];
+  integrationStats: IntegrationReadinessStats;
+}
+
+export type IntegrationStatus = 'ready' | 'partial' | 'missing' | 'placeholder';
+
+export interface IntegrationSummaryEntry {
+  key: string;
+  label: string;
+  status: IntegrationStatus;
+  optional: boolean;
+  missing: string[];
+  placeholders: string[];
+  provided: string[];
+}
+
 export class EnvironmentValidationError extends Error {
-  constructor(message: string, public missingVars: string[]) {
+  constructor(
+    message: string,
+    public missingVars: string[],
+    public mode: ValidationMode,
+    public warnings: string[]
+  ) {
     super(message);
     this.name = 'EnvironmentValidationError';
   }
 }
 
-export function validateEnvironment(): EnvironmentConfig {
+function calculatePercentage(count: number, total: number): number {
+  if (total === 0) {
+    return 0;
+  }
+  return Math.round((count / total) * 1000) / 10;
+}
+
+const RELAXED_PLACEHOLDERS: Record<string, string> = {
+  PG_DSN: 'postgres://placeholder:placeholder@localhost:5432/placeholder',
+  UPSTASH_VECTOR_REST_URL: 'https://example.upstash.io',
+  UPSTASH_VECTOR_REST_TOKEN: 'placeholder-upstash-token',
+  OPENAI_API_KEY: 'placeholder-openai-api-key',
+  NOTION_TOKEN: 'placeholder-notion-token',
+  NOTION_DB_REGISTRY: 'placeholder-registry-db',
+  NOTION_DB_CASES: 'placeholder-cases-db',
+  NOTION_DB_FINANCE: 'placeholder-finance-db',
+  NOTION_DB_PUBLISHING: 'placeholder-publishing-db',
+  ADMIN_TOKEN: 'placeholder-admin-token',
+  CRON_SECRET: 'placeholder-cron-secret',
+};
+
+const SECRET_KEYWORDS = ['TOKEN', 'SECRET', 'KEY', 'PASSWORD', 'DSN', 'ACCESS', 'WEBHOOK', 'URL', 'ENDPOINT'];
+
+const PLACEHOLDER_INDICATORS: Array<{ pattern: RegExp; description: string }> = [
+  { pattern: /changeme/i, description: '"changeme" placeholder text' },
+  { pattern: /change[-_ ]?me/i, description: '"change me" placeholder text' },
+  { pattern: /replace[-_ ]?me/i, description: '"replace me" placeholder text' },
+  { pattern: /placeholder/i, description: '"placeholder" marker' },
+  { pattern: /dummy/i, description: '"dummy" marker' },
+  { pattern: /set[-_ ]?me/i, description: '"set me" placeholder text' },
+  { pattern: /todo/i, description: '"todo" marker' },
+  { pattern: /tbd/i, description: '"TBD" marker' },
+  { pattern: /your[-_ ]/i, description: '"your-..." placeholder text' },
+  { pattern: /xxxxx+/i, description: '"xxxxx" placeholder characters' },
+  { pattern: /insert[-_ ]?here/i, description: '"insert here" placeholder text' },
+  { pattern: /\bexample\b/i, description: '"example" placeholder text' },
+  { pattern: /\bsample\b/i, description: '"sample" placeholder text' },
+  { pattern: /\bfake\b/i, description: '"fake" placeholder text' },
+  { pattern: /\btemp(?:orary)?\b/i, description: '"temp" placeholder text' },
+  { pattern: /\btest(?:ing)?\b/i, description: '"test" placeholder text' },
+  { pattern: /\babc123\b/i, description: '"abc123" placeholder text' },
+  { pattern: /\b123456\b/, description: '"123456" placeholder digits' },
+  { pattern: /<[^>]+>/, description: 'angle-bracket placeholder value' },
+];
+
+function isTruthy(value?: string): boolean {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+}
+
+function shouldInspectForPlaceholder(key: string): boolean {
+  const upperKey = key.toUpperCase();
+  return SECRET_KEYWORDS.some((keyword) => upperKey.includes(keyword));
+}
+
+function detectPlaceholderIndicator(value: string): string | undefined {
+  for (const indicator of PLACEHOLDER_INDICATORS) {
+    if (indicator.pattern.test(value)) {
+      return indicator.description;
+    }
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+
+  if (/^([a-zA-Z0-9])\1{5,}$/.test(trimmed)) {
+    return 'repeated single-character placeholder value';
+  }
+
+  if (/^[*_.-]{5,}$/.test(trimmed)) {
+    return 'repeated punctuation placeholder value';
+  }
+
+  if (/^(?:password|letmein|secret)$/i.test(trimmed)) {
+    return 'common placeholder secret phrase';
+  }
+
+  return undefined;
+}
+
+export type EnvSource = NodeJS.ProcessEnv;
+
+function determineValidationMode(env: EnvSource): ValidationMode {
+  const enforcementRequested = isTruthy(env.ENFORCE_ENV_VALIDATION);
+  const skipRequested = isTruthy(env.SKIP_ENV_VALIDATION);
+  const runningInCi = isTruthy(env.CI) || isTruthy(env.VERCEL_CI);
+  const nodeEnv = (env.NODE_ENV ?? 'development').toLowerCase();
+  const lifecycleEvent = env.npm_lifecycle_event;
+
+  if (enforcementRequested) {
+    return { type: 'strict' };
+  }
+
+  if (skipRequested) {
+    return { type: 'relaxed', reason: 'SKIP_ENV_VALIDATION is enabled' };
+  }
+
+  if (runningInCi) {
+    const reasonSuffix = nodeEnv === 'production' ? ' with NODE_ENV=production' : '';
+    return {
+      type: 'relaxed',
+      reason: `a CI environment${reasonSuffix} was detected`,
+    };
+  }
+
+  if (lifecycleEvent === 'build') {
+    return { type: 'relaxed', reason: 'npm lifecycle event "build" is running' };
+  }
+
+  if (nodeEnv === 'production') {
+    return { type: 'strict' };
+  }
+
+  if (nodeEnv === 'test') {
+    return { type: 'relaxed', reason: 'NODE_ENV=test' };
+  }
+
+  return { type: 'strict' };
+}
+
+export function performEnvironmentValidation(env: EnvSource = process.env): EnvironmentValidationResult {
   const missingVars: string[] = [];
   const warnings: string[] = [];
+  const placeholdersUsed: string[] = [];
+  const placeholderWarnings = new Set<string>();
+  const integrations: IntegrationSummaryEntry[] = [];
+  const enforcementRequested = isTruthy(env.ENFORCE_ENV_VALIDATION);
+  const skipRequested = isTruthy(env.SKIP_ENV_VALIDATION);
+  const runningInCi = isTruthy(env.CI) || isTruthy(env.VERCEL_CI);
+  const nodeEnv = (env.NODE_ENV ?? 'development').toLowerCase();
+  const lifecycleEvent = env.npm_lifecycle_event;
 
-  function getRequired(key: string): string {
-    const value = process.env[key];
-    if (!value) {
+  const mode = determineValidationMode(env);
+  const relaxedReason = mode.type === 'relaxed' ? mode.reason : undefined;
+
+  if (enforcementRequested && skipRequested) {
+    warnings.push(
+      'Both ENFORCE_ENV_VALIDATION and SKIP_ENV_VALIDATION are set; enforcing strict validation to honour ENFORCE_ENV_VALIDATION.'
+    );
+  } else if (
+    mode.type === 'relaxed' &&
+    runningInCi &&
+    nodeEnv === 'production' &&
+    !skipRequested &&
+    !enforcementRequested
+  ) {
+    warnings.push(
+      'CI environment detected with NODE_ENV=production; relaxed validation is enabled so build pipelines can proceed. Set ENFORCE_ENV_VALIDATION=true to require real secrets.'
+    );
+  } else if (
+    mode.type === 'relaxed' &&
+    lifecycleEvent === 'build' &&
+    nodeEnv === 'production' &&
+    !runningInCi &&
+    !skipRequested &&
+    !enforcementRequested
+  ) {
+    warnings.push(
+      'npm run build detected with NODE_ENV=production; relaxed validation is enabled during compilation. Set ENFORCE_ENV_VALIDATION=true to prevent placeholder secrets in local builds.'
+    );
+  }
+
+  function createPlaceholder(key: string): string {
+    return RELAXED_PLACEHOLDERS[key] ?? `placeholder-${key.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  }
+
+  function recordMissing(key: string): void {
+    if (!env[key]) {
       missingVars.push(key);
-      return '';
     }
+  }
+
+  function warnIfPlaceholder(key: string, value?: string): void {
+    if (!value || !shouldInspectForPlaceholder(key)) {
+      return;
+    }
+    const match = detectPlaceholderIndicator(value);
+    if (!match) {
+      return;
+    }
+    if (placeholderWarnings.has(key)) {
+      return;
+    }
+    placeholderWarnings.add(key);
+    warnings.push(`Potential placeholder value detected for ${key} (${match}). Replace it with the real secret before deploying.`);
+  }
+
+  function evaluateIntegration(
+    key: string,
+    label: string,
+    requiredKeys: string[],
+    options: { optional?: boolean } = {}
+  ): void {
+    const optional = options.optional ?? false;
+    const presentKeys = requiredKeys.filter((envKey) => {
+      const raw = env[envKey];
+      return typeof raw === 'string' && raw.trim().length > 0;
+    });
+    const missing = requiredKeys.filter((envKey) => !presentKeys.includes(envKey));
+    const placeholderKeys = requiredKeys.filter((envKey) => placeholderWarnings.has(envKey));
+    const provided = presentKeys.filter((envKey) => !placeholderWarnings.has(envKey));
+
+    let status: IntegrationStatus;
+    if (missing.length === 0 && placeholderKeys.length === 0) {
+      status = 'ready';
+    } else if (presentKeys.length === 0) {
+      status = 'missing';
+    } else if (missing.length === 0 && placeholderKeys.length === presentKeys.length) {
+      status = 'placeholder';
+    } else {
+      status = 'partial';
+    }
+
+    integrations.push({
+      key,
+      label,
+      status,
+      optional,
+      missing,
+      placeholders: placeholderKeys.filter((envKey) => !missing.includes(envKey)),
+      provided,
+    });
+  }
+
+  function getRequired(key: string, fallback?: string): string {
+    const value = env[key];
+    if (!value) {
+      recordMissing(key);
+      if (mode.type === 'strict') {
+        return fallback ?? '';
+      }
+
+      const resolvedFallback = fallback ?? createPlaceholder(key);
+      const reason = relaxedReason ?? 'environment validation is running in relaxed mode';
+      warnings.push(
+        `${key} not set – using ${resolvedFallback ? 'a placeholder value' : 'an empty string'} because ${reason}.`
+      );
+      if (resolvedFallback) {
+        placeholdersUsed.push(key);
+      }
+      return resolvedFallback;
+    }
+    warnIfPlaceholder(key, value);
     return value;
   }
 
-  function getOptional(key: string, defaultValue?: string): string | undefined {
-    const value = process.env[key];
-    if (!value && defaultValue !== undefined) {
-      warnings.push(`${key} not set, using default: ${defaultValue}`);
-      return defaultValue;
+  function getOptional(key: string): string | undefined {
+    const value = env[key];
+    if (value && value !== '') {
+      warnIfPlaceholder(key, value);
+      return value;
     }
-    return value || undefined;
+    return undefined;
   }
 
   function getOptionalNumber(key: string, defaultValue?: number): number | undefined {
-    const value = process.env[key];
+    const value = env[key];
     if (!value) {
-      if (defaultValue !== undefined) {
-        warnings.push(`${key} not set, using default: ${defaultValue}`);
-        return defaultValue;
-      }
-      return undefined;
+      return defaultValue;
     }
     const parsed = parseInt(value, 10);
     if (isNaN(parsed)) {
@@ -105,30 +440,126 @@ export function validateEnvironment(): EnvironmentConfig {
     return parsed;
   }
 
-  function getOptionalBoolean(key: string, defaultValue?: boolean): boolean | undefined {
-    const value = process.env[key];
+  function getBoolean(key: string, defaultValue: boolean): boolean {
+    const value = env[key];
     if (!value) {
-      if (defaultValue !== undefined) {
-        warnings.push(`${key} not set, using default: ${defaultValue}`);
-        return defaultValue;
-      }
-      return undefined;
+      return defaultValue;
     }
-    return value.toLowerCase() === 'true';
+    return isTruthy(value);
+  }
+
+  const storageEndpoint = getOptional('S3_ENDPOINT');
+  const storageAccessKey = getOptional('S3_ACCESS_KEY');
+  const storageSecretKey = getOptional('S3_SECRET_KEY');
+  const storageBucket = getOptional('S3_BUCKET') ?? 'traceremove-content';
+
+  const providedStorageKeys = [storageEndpoint, storageAccessKey, storageSecretKey].filter(Boolean).length;
+  if (providedStorageKeys > 0 && providedStorageKeys < 3) {
+    const missingKeys = [
+      storageEndpoint ? null : 'S3_ENDPOINT',
+      storageAccessKey ? null : 'S3_ACCESS_KEY',
+      storageSecretKey ? null : 'S3_SECRET_KEY',
+    ]
+      .filter((key): key is string => key !== null)
+      .join(', ');
+    warnings.push(
+      `Partial S3 configuration detected; missing ${missingKeys}. Object storage integration will remain disabled until all required credentials are provided.`
+    );
+  }
+
+  if (storageBucket && providedStorageKeys === 0 && (env.S3_BUCKET ?? '').length > 0) {
+    warnings.push(
+      'S3_BUCKET is set without other S3 credentials; the custom bucket value will be ignored until endpoint and access keys are configured.'
+    );
+  }
+
+  const redisRestUrl = getOptional('UPSTASH_REDIS_REST_URL');
+  const redisRestToken = getOptional('UPSTASH_REDIS_REST_TOKEN');
+
+  if ((redisRestUrl && !redisRestToken) || (!redisRestUrl && redisRestToken)) {
+    warnings.push(
+      'Partial Upstash Redis configuration detected; both UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required to enable caching.'
+    );
+  }
+
+  const slackSigningSecret = getOptional('SLACK_SIGNING_SECRET');
+  const slackBotToken = getOptional('SLACK_BOT_TOKEN');
+
+  if ((slackSigningSecret ? 1 : 0) + (slackBotToken ? 1 : 0) === 1) {
+    const missingSlackKey = slackSigningSecret ? 'SLACK_BOT_TOKEN' : 'SLACK_SIGNING_SECRET';
+    warnings.push(
+      `Partial Slack configuration detected; missing ${missingSlackKey}. Slack alerts will remain disabled until both credentials are provided.`
+    );
+  }
+
+  const twitterCredentials: Array<[string, string | undefined]> = [
+    ['TWITTER_APP_KEY', getOptional('TWITTER_APP_KEY')],
+    ['TWITTER_APP_SECRET', getOptional('TWITTER_APP_SECRET')],
+    ['TWITTER_ACCESS_TOKEN', getOptional('TWITTER_ACCESS_TOKEN')],
+    ['TWITTER_ACCESS_SECRET', getOptional('TWITTER_ACCESS_SECRET')],
+  ];
+  const providedTwitterKeys = twitterCredentials.filter(([, value]) => Boolean(value)).map(([key]) => key);
+  const missingTwitterKeys = twitterCredentials.filter(([, value]) => !value).map(([key]) => key);
+  if (providedTwitterKeys.length > 0 && missingTwitterKeys.length > 0) {
+    warnings.push(
+      `Partial Twitter configuration detected; missing ${missingTwitterKeys.join(', ')}. Posting to X/Twitter requires all credentials.`
+    );
+  }
+
+  const facebookPageId = getOptional('FB_PAGE_ID');
+  const facebookAccessToken = getOptional('FB_ACCESS_TOKEN');
+  if ((facebookPageId ? 1 : 0) + (facebookAccessToken ? 1 : 0) === 1) {
+    const missingFacebookKey = facebookPageId ? 'FB_ACCESS_TOKEN' : 'FB_PAGE_ID';
+    warnings.push(
+      `Partial Facebook configuration detected; missing ${missingFacebookKey}. Facebook publishing remains disabled until both are supplied.`
+    );
+  }
+
+  const instagramBusinessAccountId = getOptional('IG_BUSINESS_ACCOUNT_ID');
+  const instagramAccessToken = getOptional('IG_ACCESS_TOKEN');
+  if ((instagramBusinessAccountId ? 1 : 0) + (instagramAccessToken ? 1 : 0) === 1) {
+    const missingInstagramKey = instagramBusinessAccountId ? 'IG_ACCESS_TOKEN' : 'IG_BUSINESS_ACCOUNT_ID';
+    warnings.push(
+      `Partial Instagram configuration detected; missing ${missingInstagramKey}. Instagram publishing remains disabled until both are supplied.`
+    );
+  }
+
+  const botDryRun = getBoolean('BOT_DRY_RUN', true);
+
+  const twitterReady = missingTwitterKeys.length === 0 && providedTwitterKeys.length === twitterCredentials.length;
+  const facebookReady = Boolean(facebookPageId && facebookAccessToken);
+  const instagramReady = Boolean(instagramBusinessAccountId && instagramAccessToken);
+
+  if (!botDryRun) {
+    if (!twitterReady) {
+      warnings.push(
+        'BOT_DRY_RUN is disabled but Twitter credentials are incomplete. Provide all four Twitter keys before enabling live posting.'
+      );
+    }
+
+    if (!facebookReady) {
+      warnings.push(
+        'BOT_DRY_RUN is disabled but Facebook credentials are incomplete. Provide both FB_PAGE_ID and FB_ACCESS_TOKEN to enable publishing.'
+      );
+    }
+
+    if (!instagramReady) {
+      warnings.push(
+        'BOT_DRY_RUN is disabled but Instagram credentials are incomplete. Provide both IG_BUSINESS_ACCOUNT_ID and IG_ACCESS_TOKEN to enable publishing.'
+      );
+    }
+
+    if (!twitterReady && !facebookReady && !instagramReady) {
+      warnings.push(
+        'BOT_DRY_RUN is disabled, but no social integration is fully configured. The bot will remain in dry-run mode effectively until at least one platform has complete credentials.'
+      );
+    }
   }
 
   const config: EnvironmentConfig = {
-    openai: {
-      apiKey: getRequired('OPENAI_API_KEY'),
-    },
-    multiModel: {
-      anthropic: getOptional('ANTHROPIC_API_KEY'),
-      google: getOptional('GOOGLE_API_KEY'),
-      mistral: getOptional('MISTRAL_API_KEY'),
-      groq: getOptional('GROQ_API_KEY'),
-    },
     notion: {
       token: getRequired('NOTION_TOKEN'),
+      legacyDatabaseId: getOptional('NOTION_DATABASE_ID'),
       databases: {
         registry: getRequired('NOTION_DB_REGISTRY'),
         cases: getRequired('NOTION_DB_CASES'),
@@ -136,94 +567,298 @@ export function validateEnvironment(): EnvironmentConfig {
         publishing: getRequired('NOTION_DB_PUBLISHING'),
       },
     },
+    rag: {
+      sitemaps: {
+        dev: env.SITEMAP_DEV || 'https://traceremove.dev/sitemap.xml',
+        com: env.SITEMAP_COM || 'https://traceremove.com/sitemap.xml',
+        io: env.SITEMAP_IO || 'https://traceremove.io/sitemap.xml',
+      },
+    },
+    openai: {
+      apiKey: getRequired('OPENAI_API_KEY'),
+      llmMode: env.LLM_MODE || 'off',
+    },
+    multiModel: {
+      anthropic: getOptional('ANTHROPIC_API_KEY'),
+      google: getOptional('GOOGLE_API_KEY'),
+      mistral: getOptional('MISTRAL_API_KEY'),
+      groq: getOptional('GROQ_API_KEY'),
+      cohere: getOptional('COHERE_API_KEY'),
+    },
     database: {
       pgDsn: getRequired('PG_DSN'),
       poolMin: getOptionalNumber('PG_POOL_MIN', 2),
       poolMax: getOptionalNumber('PG_POOL_MAX', 20),
     },
     vector: {
-      qdrantUrl: getRequired('QDRANT_URL'),
-      qdrantApiKey: getRequired('QDRANT_API_KEY'),
-      collectionName: getOptional('QDRANT_COLLECTION_NAME', 'traceremove_vectors'),
+      restUrl: getRequired('UPSTASH_VECTOR_REST_URL'),
+      restToken: getRequired('UPSTASH_VECTOR_REST_TOKEN'),
+      collectionName: getOptional('UPSTASH_VECTOR_COLLECTION_NAME'),
       dimension: getOptionalNumber('VECTOR_DIMENSION', 1536),
     },
     cache: {
-      redisUrl: getOptional('UPSTASH_REDIS_REST_URL'),
-      redisToken: getOptional('UPSTASH_REDIS_REST_TOKEN'),
+      redisUrl: redisRestUrl,
+      redisToken: redisRestToken,
       ttlSearch: getOptionalNumber('CACHE_TTL_SEARCH', 3600),
       ttlDatabase: getOptionalNumber('CACHE_TTL_DATABASE', 1800),
       maxSize: getOptionalNumber('CACHE_MAX_SIZE', 1000),
     },
+    storage:
+      storageEndpoint && storageAccessKey && storageSecretKey
+        ? {
+            endpoint: storageEndpoint,
+            bucket: storageBucket,
+            accessKey: storageAccessKey,
+            secretKey: storageSecretKey,
+          }
+        : undefined,
     security: {
+      adminToken: getRequired('ADMIN_TOKEN'),
       cronSecret: getRequired('CRON_SECRET'),
-      rateLimitRequests: getOptionalNumber('RATE_LIMIT_REQUESTS', 100),
-      rateLimitWindow: getOptionalNumber('RATE_LIMIT_WINDOW', 60),
+      reindexToken: getOptional('REINDEX_TOKEN'),
+      slackSigningSecret,
+      slackBotToken,
+      githubWebhookSecret: getOptional('GITHUB_WEBHOOK_SECRET'),
+    },
+    scheduler: {
+      timezone: env.TIMEZONE || 'UTC',
+      cronPostLimit: getOptionalNumber('CRON_POST_LIMIT', 5) ?? 5,
+    },
+    github: {
+      token: getOptional('GITHUB_TOKEN'),
+      owner: env.GITHUB_OWNER || 'blackcatserious',
+      repo: env.GITHUB_REPO || 'traceremove-social-bot',
+    },
+    social: {
+      dryRun: botDryRun,
+      twitter: {
+        appKey: twitterCredentials[0][1],
+        appSecret: twitterCredentials[1][1],
+        accessToken: twitterCredentials[2][1],
+        accessSecret: twitterCredentials[3][1],
+      },
+      facebook: {
+        pageId: facebookPageId,
+        accessToken: facebookAccessToken,
+      },
+      instagram: {
+        businessAccountId: instagramBusinessAccountId,
+        accessToken: instagramAccessToken,
+      },
     },
     monitoring: {
-      logLevel: getOptional('LOG_LEVEL', 'info'),
-      logFormat: getOptional('LOG_FORMAT', 'json'),
-      enablePerformanceTracking: getOptionalBoolean('ENABLE_PERFORMANCE_TRACKING', true),
-      enableHealthChecks: getOptionalBoolean('ENABLE_HEALTH_CHECKS', true),
+      logLevel: env.LOG_LEVEL || 'info',
+      logFormat: env.LOG_FORMAT || 'json',
+      enablePerformanceTracking: getBoolean('ENABLE_PERFORMANCE_TRACKING', true),
+      enableHealthChecks: getBoolean('ENABLE_HEALTH_CHECKS', true),
     },
     etl: {
-      fullSyncInterval: getOptionalNumber('ETL_FULL_SYNC_INTERVAL', 1440),
-      incrementalSyncInterval: getOptionalNumber('ETL_INCREMENTAL_SYNC_INTERVAL', 60),
-      batchSize: getOptionalNumber('ETL_BATCH_SIZE', 100),
-      maxRetries: getOptionalNumber('ETL_MAX_RETRIES', 3),
+      fullSyncInterval: getOptionalNumber('ETL_FULL_SYNC_INTERVAL', 1440) ?? 1440,
+      incrementalSyncInterval: getOptionalNumber('ETL_INCREMENTAL_SYNC_INTERVAL', 60) ?? 60,
+      batchSize: getOptionalNumber('ETL_BATCH_SIZE', 100) ?? 100,
+      maxRetries: getOptionalNumber('ETL_MAX_RETRIES', 3) ?? 3,
+      webhook: getOptional('ETL_WEBHOOK'),
     },
     development: {
-      debugMode: getOptionalBoolean('DEBUG_MODE', false),
-      mockExternalApis: getOptionalBoolean('MOCK_EXTERNAL_APIS', false),
-      skipHealthChecks: getOptionalBoolean('SKIP_HEALTH_CHECKS', false),
+      debugMode: getBoolean('DEBUG_MODE', false),
+      mockExternalApis: getBoolean('MOCK_EXTERNAL_APIS', false),
+      skipHealthChecks: getBoolean('SKIP_HEALTH_CHECKS', false),
+    },
+    orm: {
+      defaultLanguage: env.ORM_DEFAULT_LANG || 'en',
+    },
+    xai: {
+      apiKey: getOptional('XAI_API_KEY'),
     },
   };
 
-  if (warnings.length > 0 && config.development.debugMode) {
-    console.warn('Environment validation warnings:', warnings);
-  }
+  evaluateIntegration('notion', 'Notion content databases', [
+    'NOTION_TOKEN',
+    'NOTION_DB_REGISTRY',
+    'NOTION_DB_CASES',
+    'NOTION_DB_FINANCE',
+    'NOTION_DB_PUBLISHING',
+  ]);
+  evaluateIntegration('database', 'Postgres database', ['PG_DSN']);
+  evaluateIntegration('openai', 'OpenAI API', ['OPENAI_API_KEY']);
+  evaluateIntegration('vector', 'Upstash Vector', [
+    'UPSTASH_VECTOR_REST_URL',
+    'UPSTASH_VECTOR_REST_TOKEN',
+  ]);
+  evaluateIntegration('security', 'Admin security tokens', ['ADMIN_TOKEN', 'CRON_SECRET']);
+  evaluateIntegration(
+    'storage',
+    'S3 object storage',
+    ['S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'cache',
+    'Upstash Redis cache',
+    ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'slack',
+    'Slack alerts',
+    ['SLACK_SIGNING_SECRET', 'SLACK_BOT_TOKEN'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'twitter',
+    'X / Twitter publishing',
+    ['TWITTER_APP_KEY', 'TWITTER_APP_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_SECRET'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'facebook',
+    'Facebook publishing',
+    ['FB_PAGE_ID', 'FB_ACCESS_TOKEN'],
+    { optional: true }
+  );
+  evaluateIntegration(
+    'instagram',
+    'Instagram publishing',
+    ['IG_BUSINESS_ACCOUNT_ID', 'IG_ACCESS_TOKEN'],
+    { optional: true }
+  );
 
-  if (missingVars.length > 0) {
-    throw new EnvironmentValidationError(
-      `Missing required environment variables: ${missingVars.join(', ')}. Please check your .env.local file and ensure all required variables are set.`,
-      missingVars
-    );
-  }
+  const integrationCounts = integrations.reduce<IntegrationReadinessCounts>(
+    (acc, integration) => {
+      acc.total += 1;
+      acc[integration.status] += 1;
+      if (integration.optional) {
+        acc.optionalTotal += 1;
+        if (integration.status === 'ready') {
+          acc.optionalReady += 1;
+        }
+      } else {
+        acc.requiredTotal += 1;
+        if (integration.status === 'ready') {
+          acc.requiredReady += 1;
+        }
+      }
+      return acc;
+    },
+    {
+      total: 0,
+      ready: 0,
+      partial: 0,
+      missing: 0,
+      placeholder: 0,
+      requiredTotal: 0,
+      requiredReady: 0,
+      optionalTotal: 0,
+      optionalReady: 0,
+    }
+  );
 
-  return config;
+  const integrationStats: IntegrationReadinessStats = {
+    ...integrationCounts,
+    readyPercentage: calculatePercentage(integrationCounts.ready, integrationCounts.total),
+    requiredReadyPercentage: calculatePercentage(
+      integrationCounts.requiredReady,
+      integrationCounts.requiredTotal
+    ),
+    optionalReadyPercentage: calculatePercentage(
+      integrationCounts.optionalReady,
+      integrationCounts.optionalTotal
+    ),
+  };
+
+  return {
+    config,
+    missing: missingVars,
+    warnings,
+    mode,
+    placeholders: placeholdersUsed,
+    integrations,
+    integrationStats,
+  };
 }
 
-export function getEnvironmentConfig(): EnvironmentConfig | null {
+export function validateEnvironment(env: EnvSource = process.env): EnvironmentConfig {
+  const result = performEnvironmentValidation(env);
+  if (result.warnings.length > 0 && (result.mode.type === 'relaxed' || result.config.development.debugMode === true)) {
+    console.warn('Environment validation warnings:', result.warnings);
+  }
+  if (result.placeholders.length > 0 && result.mode.type === 'relaxed') {
+    const context = result.mode.reason ? ` (${result.mode.reason})` : '';
+    console.warn(
+      `Environment placeholders were used${context}. Substitute real secrets for:`,
+      result.placeholders
+    );
+  }
+  if (result.missing.length > 0 && result.mode.type === 'relaxed') {
+    const context = result.mode.reason ? ` (${result.mode.reason})` : '';
+    console.warn(
+      `Environment validation running in relaxed mode${context}. Proceeding with placeholder values for:`,
+      result.missing
+    );
+  }
+  if (result.missing.length > 0 && result.mode.type === 'strict') {
+    throw new EnvironmentValidationError(
+      `Missing required environment variables: ${result.missing.join(', ')}. Please check your .env.local file and ensure all required variables are set.`,
+      result.missing,
+      result.mode,
+      result.warnings
+    );
+  }
+  return result.config;
+}
+
+export function getEnvironmentValidationSummary(env: EnvSource = process.env): {
+  valid: boolean;
+  missing: string[];
+  warnings: string[];
+  mode: ValidationMode;
+  placeholders: string[];
+  integrations: IntegrationSummaryEntry[];
+  integrationStats: IntegrationReadinessStats;
+} {
+  const result = performEnvironmentValidation(env);
+  return {
+    valid: result.missing.length === 0,
+    missing: result.missing,
+    warnings: result.warnings,
+    mode: result.mode,
+    placeholders: result.placeholders,
+    integrations: result.integrations,
+    integrationStats: result.integrationStats,
+  };
+}
+
+export function getEnvironmentConfig(env: EnvSource = process.env): EnvironmentConfig {
   try {
-    return validateEnvironment();
+    return validateEnvironment(env);
   } catch (error) {
     if (error instanceof EnvironmentValidationError) {
       console.error('Environment validation failed:', error.message);
-      return null;
     }
     throw error;
   }
 }
 
-export function isProductionEnvironment(): boolean {
-  return process.env.NODE_ENV === 'production';
+export function isProductionEnvironment(env: EnvSource = process.env): boolean {
+  return (env.NODE_ENV ?? 'development') === 'production';
 }
 
-export function isDevelopmentEnvironment(): boolean {
-  return process.env.NODE_ENV === 'development';
+export function isDevelopmentEnvironment(env: EnvSource = process.env): boolean {
+  return (env.NODE_ENV ?? 'development') === 'development';
 }
 
-export function getLogLevel(): string {
-  return process.env.LOG_LEVEL || 'info';
+export function getLogLevel(env: EnvSource = process.env): string {
+  return env.LOG_LEVEL || 'info';
 }
 
-export function shouldEnableDebugMode(): boolean {
-  return process.env.DEBUG_MODE === 'true';
+export function shouldEnableDebugMode(env: EnvSource = process.env): boolean {
+  return isTruthy(env.DEBUG_MODE);
 }
 
-export function shouldMockExternalApis(): boolean {
-  return process.env.MOCK_EXTERNAL_APIS === 'true';
+export function shouldMockExternalApis(env: EnvSource = process.env): boolean {
+  return isTruthy(env.MOCK_EXTERNAL_APIS);
 }
 
-export function shouldSkipHealthChecks(): boolean {
-  return process.env.SKIP_HEALTH_CHECKS === 'true';
+export function shouldSkipHealthChecks(env: EnvSource = process.env): boolean {
+  return isTruthy(env.SKIP_HEALTH_CHECKS);
 }

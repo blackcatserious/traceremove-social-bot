@@ -74,6 +74,22 @@ GITHUB_OWNER=blackcatserious
 GITHUB_REPO=traceremove-social-bot
 ```
 
+You can verify that the required variables are present by running the environment check script. It automatically loads `.env`, `.env.local`, and environment-specific overlays so the summary reflects the same precedence that Next.js uses when booting:
+
+```bash
+npm run check:env
+```
+
+Useful flags when validating your configuration:
+
+* `-- --json` – print a machine-readable payload that includes readiness statistics, enforced integrations, and timing metadata.
+* `-- --output <path>` – write the JSON payload to disk. The checker expands Unix-style (`$VAR`/`${VAR}`), Windows-style (`%VAR%`), and home-relative (`~`) segments before resolving the final location.
+* `-- --dotenv <file>` – overlay additional env files (repeat as needed). Combine this with `-- --example` to lint `.env.example` with deterministic placeholders.
+* `-- --require <integration>` / `-- --require-optional` – mark specific (or all optional) integrations as required for the run. Failures list which keys are missing or still placeholders.
+* `-- --fail-on-warnings` – treat warnings (including placeholder detections) as fatal so CI pipelines can enforce clean runs.
+* `-- --strict` / `-- --relaxed` – override validation mode without editing environment variables.
+* `-- --silent` – suppress human-readable output when you only care about the exit code or a saved JSON report.
+
 ## Folder structure
 
 ```
