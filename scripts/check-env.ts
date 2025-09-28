@@ -1,6 +1,7 @@
 import nextEnv from '@next/env';
 import dotenv from 'dotenv';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 
@@ -362,6 +363,14 @@ function printHelp(): void {
 }
 
 function resolveFilePath(target: string, projectDir: string): string {
+  if (target === '~') {
+    return os.homedir();
+  }
+
+  if (target.startsWith('~/')) {
+    return path.join(os.homedir(), target.slice(2));
+  }
+
   return path.isAbsolute(target) ? target : path.join(projectDir, target);
 }
 
