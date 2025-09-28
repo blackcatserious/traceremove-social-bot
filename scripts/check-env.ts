@@ -560,7 +560,7 @@ function writeSummaryToFile(
   durationMs: number,
   requiredIntegrations: IntegrationRequirement[],
   requireOptional: boolean
-): void {
+): string {
   const projectDir = process.cwd();
   const resolvedPath = resolveFilePath(outputPath, projectDir);
   const payload = createSummaryPayload(
@@ -574,6 +574,7 @@ function writeSummaryToFile(
   );
   fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
   fs.writeFileSync(resolvedPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  return resolvedPath;
 }
 
 function outputHuman(
@@ -750,7 +751,7 @@ function main(): void {
     }
 
     if (args.outputPath) {
-      writeSummaryToFile(
+      const resolvedPath = writeSummaryToFile(
         args.outputPath,
         summary,
         loadedFiles,
@@ -760,6 +761,9 @@ function main(): void {
         requiredIntegrations,
         args.requireOptional
       );
+      if (!args.json && !args.silent) {
+        console.log(`\nSaved JSON summary to ${resolvedPath}`);
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
